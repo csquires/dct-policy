@@ -2,9 +2,10 @@ import networkx as nx
 import itertools as itr
 import random
 from mixed_graph import LabelledMixedGraph
+from causaldag import UndirectedGraph, DAG
 
 
-def get_directed_clique_graph(dag):
+def get_directed_clique_graph(dag: DAG) -> LabelledMixedGraph:
     ug = nx.Graph()
     ug.add_edges_from(dag.arcs)
     clique_graph = get_clique_graph(ug)
@@ -23,7 +24,7 @@ def get_directed_clique_graph(dag):
     return LabelledMixedGraph(directed=directed_edges, bidirected=bidirected_edges)
 
 
-def get_clique_graph(ug):
+def get_clique_graph(ug: UndirectedGraph) -> LabelledMixedGraph:
     cliques = nx.chordal_graph_cliques(ug)
     clique_tree = get_clique_tree(ug)
 
@@ -41,7 +42,7 @@ def get_clique_graph(ug):
     return LabelledMixedGraph.from_nx(clique_graph)
 
 
-def get_clique_tree(ug):
+def get_clique_tree(ug: UndirectedGraph):
     cliques = nx.chordal_graph_cliques(ug)
     clique_intersection_graph = nx.Graph()
     clique_intersection_graph.add_edges_from(
@@ -52,7 +53,7 @@ def get_clique_tree(ug):
     return clique_tree
 
 
-def edge_neighbors(graph):
+def edge_neighbors(graph) -> set:
     e_nbrs = set()
     for node in graph.nodes():
         incident_edges = [frozenset({node, nbr}) for nbr in graph.neighbors(node)]
@@ -83,7 +84,7 @@ def get_induced_chordal(clique_tree):
     return induced_graph
 
 
-def get_tree_centroid(tree):
+def get_tree_centroid(tree: nx.Graph):
     nnodes = tree.number_of_nodes()
 
     candidate_nodes = list(tree.nodes())

@@ -1,5 +1,6 @@
 from chordal_utils import get_induced_chordal, get_clique_tree, get_tree_centroid, get_directed_clique_graph, get_clique_graph
 from mixed_graph import LabelledMixedGraph
+from causaldag import UndirectedGraph, DAG
 
 
 def incomparable(edge1, edge2, clique_graph):
@@ -8,7 +9,14 @@ def incomparable(edge1, edge2, clique_graph):
     return not (label1 <= label2 or label2 < label1)
 
 
-def add_edge_direction(clique_graph, clique_tree, c1, c2, dcg, verbose=False):
+def add_edge_direction(
+        clique_graph: LabelledMixedGraph,
+        clique_tree: LabelledMixedGraph,
+        c1,
+        c2,
+        dcg,
+        verbose=False
+):
     if dcg.has_directed(c1, c2):
         clique_graph.to_directed(c1, c2)
         clique_tree.to_directed(c1, c2)
@@ -24,19 +32,38 @@ def add_edge_direction(clique_graph, clique_tree, c1, c2, dcg, verbose=False):
 
 
 def apply_clique_intervention(
-        clique_tree,
+        clique_tree: LabelledMixedGraph,
         induced_chordal,
-        clique_graph,
-        intervened_clique,
-        dcg,
-        verbose=False
+        clique_graph: LabelledMixedGraph,
+        target_clique,
+        dcg: LabelledMixedGraph,
+        verbose: bool = False
 ):
+    """
+    Given a clique tree, "intervene" on the clique `target_clique`.
+
+    Parameters
+    ----------
+    clique_tree
+    induced_chordal
+    clique_graph:
+
+    target_clique:
+        Clique on which the clique intervention is performed.
+    dcg:
+        The true directed clique graph. Used to determine edge directions that result from the clique intervention.
+    verbose
+
+    Returns
+    -------
+
+    """
     new_clique_tree = clique_tree.copy()
     new_clique_graph = clique_graph.copy()
 
     # === ADD DIRECTIONS TO CLIQUE GRAPH AND CLIQUE TREE
-    for nbr_clique in clique_graph.neighbors_of(intervened_clique):
-        add_edge_direction(new_clique_graph, new_clique_tree, nbr_clique, intervened_clique, dcg, verbose=verbose)
+    for nbr_clique in clique_graph.neighbors_of(target_clique):
+        add_edge_direction(new_clique_graph, new_clique_tree, nbr_clique, target_clique, dcg, verbose=verbose)
 
     current_unoriented_edges = new_clique_graph.undirected
     extra_nodes = set()
@@ -83,7 +110,7 @@ def apply_clique_intervention(
     return new_clique_tree, new_clique_graph, extra_nodes
 
 
-def intervention_policy(ug, dag):
+def intervention_policy(ug: UndirectedGraph, dag: DAG):
     clique_tree = get_clique_tree(ug)
     dcg = get_directed_clique_graph(dag)
     induced_chordal = get_clique_tree(clique_tree)
@@ -98,9 +125,46 @@ def intervention_policy(ug, dag):
             induced_chordal,
             clique_graph,
             central_clique,
-            directed_clique_graph
+            dcg
         )
         all_extra_nodes.update(extra_nodes)
+
+
+def dct_policy(dag: DAG) -> set:
+    ug = UndirectedGraph(nodes=dag.nodes, edges=dag.skeleton)
+    full_clique_tree = LabelledMixedGraph.from_nx(get_clique_tree(ug))
+    current_clique_subtree = LabelledMixedGraph.from_nx(full_clique_tree)
+    clique_graph = get_clique_graph(ug)
+    dcg = get_directed_clique_graph(dag)
+
+    intervened_nodes = set()
+    while True:
+        # INTERVENE ON THE CENTRAL CLIQUE
+        central_clique = get_tree_centroid(current_clique_subtree)
+        new_full_clique_tree, new_clique_graph, extra_nodes = apply_clique_intervention(
+            full_clique_tree,
+            _,
+            clique_graph,
+            central_clique,
+            dcg
+        )
+
+        # RECORD THE NODES THAT WERE INTERVENED ON
+        intervened_nodes.update(central_clique)
+        intervened_nodes.update(extra_nodes)
+
+        # TAKE SUBTREE
+        remaining_cliques = {
+            clique for clique in full_clique_tree._nodes
+            if full_clique_tree.neighbor_degree_of(clique) != 0
+        }
+        if len(remaining_cliques) == 0:
+            break
+        current_clique_subtree = current_clique_subtree.induced_graph(remaining_cliques)
+
+    # todo: PHASE II
+
+    return intervened_nodes
 
 
 if __name__ == '__main__':

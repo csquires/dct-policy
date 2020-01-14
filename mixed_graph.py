@@ -109,6 +109,18 @@ class LabelledMixedGraph:
         return frozenset(*edge) in self._undirected
 
     # === NODE-WISE SETS
+    def indegree_of(self, node):
+        return len(self._parents[node])
+
+    def outdegree_of(self, node):
+        return len(self._children[node])
+
+    def spouse_degree_of(self, node):
+        return len(self._spouses[node])
+
+    def neighbor_degree_of(self, node):
+        return len(self._neighbors[node])
+
     def neighbors_of(self, node):
         return set(self._neighbors[node])
 
