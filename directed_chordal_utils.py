@@ -19,7 +19,7 @@ def random_chordal_graph(nnodes, p=.1, ngraphs=1):
         return [random_chordal_graph(nnodes, p=p) for _ in range(ngraphs)]
 
 
-def random_chordal_graph2(nnodes, k, ngraphs=1):
+def random_chordal_graph2(nnodes: int, k: int, ngraphs: int=1):
     if ngraphs == 1:
         t = nx.random_tree(nnodes)
 
