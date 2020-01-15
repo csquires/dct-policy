@@ -44,6 +44,6 @@ if __name__ == '__main__':
     dl = DagLoader(5, 2, 10)
     ar_random = AlgRunner('random', dl)
     ar_dct = AlgRunner('dct', dl)
-    results_random = ar_random.get_alg_results()
-    results_dct = ar_dct.get_alg_results()
+    # results_random = ar_random.get_alg_results()
+    results_dct = ar_dct.get_alg_results(overwrite=True)
 

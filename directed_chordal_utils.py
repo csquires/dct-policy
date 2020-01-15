@@ -19,35 +19,39 @@ def random_chordal_graph(nnodes, p=.1, ngraphs=1):
         return [random_chordal_graph(nnodes, p=p) for _ in range(ngraphs)]
 
 
-def random_chordal_graph2(nnodes: int, k: int, ngraphs: int=1):
+def random_chordal_graph2(nnodes: int, k: int, ngraphs: int=1, ensure_connected=True):
     if ngraphs == 1:
-        t = nx.random_tree(nnodes)
+        for ix in itr.count():
+            if ix > 100:
+                raise ValueError("100 iterations without a connected graph, please change parameters")
+            t = nx.random_tree(nnodes)
 
-        subtrees = []
-        for i in range(nnodes):
-            x = random.randint(0, nnodes-1)
-            t_i = nx.Graph()
-            t_i.add_node(x)
-            t_i_nbrs = {x: set(t.neighbors(x))}
-            k_i = random.randint(1, 2*k-1)
-            for j in range(k_i-1):
-                y = random.sample(t_i_nbrs.keys(), 1)[0]
-                z = random.sample(t_i_nbrs[y], 1)[0]
-                t_i.add_edge(y, z)
-                t_i_nbrs[y] -= {z}
-                t_i_nbrs[z] = set(t.neighbors(z)) - {y}
-                if not t_i_nbrs[y]:
-                    del t_i_nbrs[y]
-                if not t_i_nbrs[z]:
-                    del t_i_nbrs[z]
-            subtrees.append(t_i)
+            subtrees = []
+            for i in range(nnodes):
+                x = random.randint(0, nnodes-1)
+                t_i = nx.Graph()
+                t_i.add_node(x)
+                t_i_nbrs = {x: set(t.neighbors(x))}
+                k_i = random.randint(1, 2*k-1)
+                for j in range(k_i-1):
+                    y = random.sample(t_i_nbrs.keys(), 1)[0]
+                    z = random.sample(t_i_nbrs[y], 1)[0]
+                    t_i.add_edge(y, z)
+                    t_i_nbrs[y] -= {z}
+                    t_i_nbrs[z] = set(t.neighbors(z)) - {y}
+                    if not t_i_nbrs[y]:
+                        del t_i_nbrs[y]
+                    if not t_i_nbrs[z]:
+                        del t_i_nbrs[z]
+                subtrees.append(t_i)
 
-        g = nx.Graph()
-        g.add_nodes_from(range(nnodes))
-        for (i, t_i), (j, t_j) in itr.combinations(enumerate(subtrees), 2):
-            if t_i.nodes & t_j.nodes: g.add_edge(i, j)
+            g = nx.Graph()
+            g.add_nodes_from(range(nnodes))
+            for (i, t_i), (j, t_j) in itr.combinations(enumerate(subtrees), 2):
+                if t_i.nodes & t_j.nodes: g.add_edge(i, j)
 
-        return g
+            if not ensure_connected or nx.is_connected(g):
+                return g
     else:
         return [random_chordal_graph2(nnodes, k) for _ in range(ngraphs)]
 
