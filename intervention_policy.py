@@ -1,6 +1,7 @@
 from chordal_utils import get_induced_chordal, get_clique_tree, get_tree_centroid, get_directed_clique_graph, get_clique_graph
 from mixed_graph import LabelledMixedGraph
 from causaldag import UndirectedGraph, DAG
+import random
 
 
 def incomparable(edge1, edge2, clique_graph):
@@ -37,8 +38,9 @@ def apply_clique_intervention(
         clique_graph: LabelledMixedGraph,
         target_clique,
         dcg: LabelledMixedGraph,
-        verbose: bool = False
-):
+        verbose: bool = False,
+        extra_interventions: bool = True
+) -> (LabelledMixedGraph, LabelledMixedGraph, set):
     """
     Given a clique tree, "intervene" on the clique `target_clique`.
 
@@ -53,10 +55,15 @@ def apply_clique_intervention(
     dcg:
         The true directed clique graph. Used to determine edge directions that result from the clique intervention.
     verbose
+    extra_interventions:
+        If True, then perform extra interventions as needed to ensure that only one undirected subtree remains.
 
     Returns
     -------
-
+    (new_clique_tree, new_clique_graph, extra_nodes)
+        new_clique_tree: clique tree with edge directions added and propagated
+        new_clique_graph: clique graph with edge directions added and propagated
+        extra_nodes: nodes intervened on in order to get all clique tree edge directions
     """
     new_clique_tree = clique_tree.copy()
     new_clique_graph = clique_graph.copy()
@@ -92,15 +99,15 @@ def apply_clique_intervention(
                 new_clique_graph.to_directed(j, i)
                 new_clique_tree.to_directed(i, j)
                 if verbose: print(f"Directed {j}->{i} by propagation")
+            elif extra_interventions:
+                upstream_i = new_clique_graph.parents_of(i) | new_clique_graph.spouses_of(i)
+                upstream_j = new_clique_graph.parents_of(j) | new_clique_graph.spouses_of(j)
+
+                if upstream_i & upstream_j:
+                    extra_nodes.update(i & j)
+                    add_edge_direction(new_clique_graph, new_clique_tree, i, j, dcg, verbose=verbose)
             else:
                 if verbose: print(f"Could not direct {i}-{j}")
-            # else:
-            #     upstream_i = new_clique_graph.parents_of(i) | new_clique_graph.spouses_of(i)
-            #     upstream_j = new_clique_graph.parents_of(j) | new_clique_graph.spouses_of(j)
-            #
-            #     if upstream_i & upstream_j:
-            #         extra_nodes.update(i & j)
-            #         add_edge_direction(new_clique_graph, new_clique_tree, i, j, dcg, verbose=verbose)
 
         new_unoriented_edges = new_clique_graph.undirected
         if current_unoriented_edges == new_unoriented_edges:
@@ -141,7 +148,7 @@ def dct_policy(dag: DAG) -> set:
     while True:
         # INTERVENE ON THE CENTRAL CLIQUE
         central_clique = get_tree_centroid(current_clique_subtree)
-        new_full_clique_tree, new_clique_graph, extra_nodes = apply_clique_intervention(
+        full_clique_tree, clique_graph, extra_nodes = apply_clique_intervention(
             full_clique_tree,
             _,
             clique_graph,
@@ -162,7 +169,16 @@ def dct_policy(dag: DAG) -> set:
             break
         current_clique_subtree = current_clique_subtree.induced_graph(remaining_cliques)
 
-    # todo: PHASE II
+    while True:
+        source_cliques = {clique for clique in clique_graph._nodes if clique_graph.indegree_of(clique) == 0}
+        if len(source_cliques) == 0:
+            break
+        next_clique = random.choice(source_cliques)
+        clique_graph.remove_node(next_clique)
+
+        # intervene on all nodes in this clique if it doesn't have a residual of size one
+        if len(next_clique - intervened_nodes) > 1:
+            intervened_nodes.update(next_clique)
 
     return intervened_nodes
 

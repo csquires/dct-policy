@@ -179,6 +179,33 @@ class LabelledMixedGraph:
         self._spouses[i].add(j)
 
     # === REMOVERS
+    def remove_node(self, i):
+        self._nodes.remove(i)
+
+        for parent in self._parents[i]:
+            self._children[parent].remove(i)
+        del self._parents[i]
+
+        for child in self._children[i]:
+            self._parents[child].remove(i)
+        del self._children[i]
+
+        for spouse in self._spouses[i]:
+            self._spouses[spouse].remove(i)
+        del self._spouses[i]
+
+        for nbr in self._neighbors[i]:
+            self._neighbors[nbr].remove(i)
+        del self._neighbors[i]
+
+        for adj in self._adjacent[i]:
+            self._adjacent[adj].remove(i)
+        del self._adjacent[i]
+
+        self._directed = {(j, k): val for (j, k), val in self._directed.items() if i != j and i != k}
+        self._bidirected = {(j, k): val for (j, k), val in self._bidirected.items() if i != j and i != k}
+        self._undirected = {(j, k): val for (j, k), val in self._undirected.items() if i != j and i != k}
+
     def remove_directed(self, i, j, ignore_error=True):
         try:
             label = self._directed.pop((i, j))
