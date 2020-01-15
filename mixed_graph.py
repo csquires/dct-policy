@@ -1,4 +1,5 @@
 from collections import defaultdict
+import networkx as nx
 
 
 class LabelledMixedGraph:
@@ -84,8 +85,14 @@ class LabelledMixedGraph:
         undirected = {frozenset({i, j}): nx_graph.get_edge_data(i, j)['label'] for i, j in nx_graph.edges()}
         return LabelledMixedGraph(nodes=nx_graph.nodes(), undirected=undirected)
 
-    def to_nx(self):
-        raise NotImplementedError
+    def to_nx(self) -> nx.Graph:
+        if self._bidirected or self._directed:
+            raise ValueError("Can only convert if the graph has only undirected edges")
+        nx_graph = nx.Graph()
+        nx_graph.add_nodes_from(self._nodes)
+        nx_graph.add_edges_from(self._undirected.keys())
+        nx.set_edge_attributes(nx_graph, self._undirected, 'label')
+        return nx_graph
 
     def induced_graph(self, nodes):
         raise NotImplementedError

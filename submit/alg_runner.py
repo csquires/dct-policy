@@ -1,13 +1,13 @@
 import os
 from submit.dag_loader import DagLoader
-from intervention_policy import intervention_policy
+from intervention_policy import dct_policy
 from submit.baselines import random_policy, max_degree_policy
 from utils import write_list
 import numpy as np
 
 
 ALG_DICT = {
-    'dct': intervention_policy,
+    'dct': dct_policy,
     'random': random_policy,
     'max_degree': max_degree_policy
 }
@@ -25,6 +25,7 @@ class AlgRunner:
     def get_alg_results(self, overwrite=False):
         result_filename = os.path.join(self.alg_folder, f'num_nodes_list.npy')
         if overwrite or not os.path.exists(self.alg_folder):
+            print('here')
             dags = self.dag_loader.get_dags()
             os.makedirs(self.alg_folder, exist_ok=True)
             num_nodes_list = []
@@ -35,11 +36,14 @@ class AlgRunner:
             np.save(result_filename, np.array(num_nodes_list))
             return np.array(num_nodes_list)
         else:
+            print(os.path.exists(self.alg_folder))
             return np.load(result_filename)
 
 
 if __name__ == '__main__':
     dl = DagLoader(5, 2, 10)
-    al = AlgRunner('random', dl)
-    results = al.get_alg_results()
+    ar_random = AlgRunner('random', dl)
+    ar_dct = AlgRunner('dct', dl)
+    results_random = ar_random.get_alg_results()
+    results_dct = ar_dct.get_alg_results()
 

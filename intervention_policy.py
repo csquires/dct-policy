@@ -75,39 +75,39 @@ def apply_clique_intervention(
     current_unoriented_edges = new_clique_graph.undirected
     extra_nodes = set()
 
-    # === ITERATIVELY ORIENT EDGES
+    # === ITERATIVELY ORIENT EDGES, CHECKING EACH EDGE UNTIL NO RULES CAN BE APPLIED
     while True:
         if verbose: print('========')
-        for (i, j), label in current_unoriented_edges.items():
+        for (c1, c2), label in current_unoriented_edges.items():
             directed_with_same_label = new_clique_graph.directed_edges_with_label(label)
-            onto_i = new_clique_graph.onto_edges(i)
-            onto_j = new_clique_graph.onto_edges(j)
+            onto_c1 = new_clique_graph.onto_edges(c1)
+            onto_c2 = new_clique_graph.onto_edges(c2)
 
-            if any(d[0] == i for d in directed_with_same_label):  # if C1 --S12--> C2 and C1 --S12-- C3, C1->C3
-                new_clique_graph.to_directed(i, j)
-                new_clique_tree.to_directed(i, j)
-                if verbose: print(f"Directed {i}->{j} by equivalence")
-            elif any(d[0] == j for d in directed_with_same_label):
-                new_clique_tree.to_directed(j, i)
-                new_clique_graph.to_directed(j, i)
-                if verbose: print(f"Directed {j}->{i} by equivalence")
-            elif any(incomparable(onto_edge, (i, j), clique_graph) for onto_edge in onto_i):
-                new_clique_graph.to_directed(i, j)
-                new_clique_tree.to_directed(i, j)
-                if verbose: print(f"Directed {i}->{j} by propagation")
-            elif any(incomparable(onto_edge, (i, j), clique_graph) for onto_edge in onto_j):
-                new_clique_graph.to_directed(j, i)
-                new_clique_tree.to_directed(i, j)
-                if verbose: print(f"Directed {j}->{i} by propagation")
+            if any(d[0] == c1 for d in directed_with_same_label):  # if C1 --S13--> C3 and C1 --S13-- C2, C1->C2
+                new_clique_graph.to_directed(c1, c2)
+                new_clique_tree.to_directed(c1, c2)
+                if verbose: print(f"Directed {c1}->{c2} by equivalence")
+            elif any(d[0] == c2 for d in directed_with_same_label):  # if C2 --S12--> C3 and C1 --S13-- C2, C1<-C2
+                new_clique_tree.to_directed(c2, c1)
+                new_clique_graph.to_directed(c2, c1)
+                if verbose: print(f"Directed {c2}->{c1} by equivalence")
+            elif any(incomparable(onto_edge, (c1, c2), clique_graph) for onto_edge in onto_c1):  # propagate C1 -> C2
+                new_clique_graph.to_directed(c1, c2)
+                new_clique_tree.to_directed(c1, c2)
+                if verbose: print(f"Directed {c1}->{c2} by propagation")
+            elif any(incomparable(onto_edge, (c1, c2), clique_graph) for onto_edge in onto_c2):  # propagate C2 -> C1
+                new_clique_graph.to_directed(c2, c1)
+                new_clique_tree.to_directed(c1, c2)
+                if verbose: print(f"Directed {c2}->{c1} by propagation")
             elif extra_interventions:
-                upstream_i = new_clique_graph.parents_of(i) | new_clique_graph.spouses_of(i)
-                upstream_j = new_clique_graph.parents_of(j) | new_clique_graph.spouses_of(j)
+                upstream_c1 = new_clique_graph.parents_of(c1) | new_clique_graph.spouses_of(c1)
+                upstream_c2 = new_clique_graph.parents_of(c2) | new_clique_graph.spouses_of(c2)
 
-                if upstream_i & upstream_j:
-                    extra_nodes.update(i & j)
-                    add_edge_direction(new_clique_graph, new_clique_tree, i, j, dcg, verbose=verbose)
+                if upstream_c1 & upstream_c2:  # if c1 and c2 have a common parent/spouse, then spend interventions
+                    extra_nodes.update(c1 & c2)
+                    add_edge_direction(new_clique_graph, new_clique_tree, c1, c2, dcg, verbose=verbose)
             else:
-                if verbose: print(f"Could not direct {i}-{j}")
+                if verbose: print(f"Could not direct {c1}-{c2}")
 
         new_unoriented_edges = new_clique_graph.undirected
         if current_unoriented_edges == new_unoriented_edges:
@@ -139,8 +139,8 @@ def intervention_policy(ug: UndirectedGraph, dag: DAG):
 
 def dct_policy(dag: DAG) -> set:
     ug = UndirectedGraph(nodes=dag.nodes, edges=dag.skeleton)
-    full_clique_tree = LabelledMixedGraph.from_nx(get_clique_tree(ug))
-    current_clique_subtree = LabelledMixedGraph.from_nx(full_clique_tree)
+    full_clique_tree = get_clique_tree(ug)
+    current_clique_subtree = full_clique_tree
     clique_graph = get_clique_graph(ug)
     dcg = get_directed_clique_graph(dag)
 

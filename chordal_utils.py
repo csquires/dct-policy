@@ -25,11 +25,14 @@ def get_directed_clique_graph(dag: DAG) -> LabelledMixedGraph:
 
 
 def get_clique_graph(ug: UndirectedGraph) -> LabelledMixedGraph:
-    cliques = nx.chordal_graph_cliques(ug)
+    if not isinstance(ug, UndirectedGraph):
+        raise ValueError("Not an UndirectedGraph")
     clique_tree = get_clique_tree(ug)
+    ug = ug.to_nx()
+    cliques = nx.chordal_graph_cliques(ug)
 
     # === C1-C2 is in the clique graph iff c1&c2 is the label of some edge on the path between them
-    paths = dict(nx.all_pairs_shortest_path(clique_tree))
+    paths = dict(nx.all_pairs_shortest_path(clique_tree.to_nx()))
     clique_path_edges = {
         frozenset({c1, c2}): {paths[c1][c2][i] & paths[c1][c2][i+1] for i in range(len(paths[c1][c2])-1)}
         for c1, c2 in itr.combinations(cliques, 2)
@@ -42,15 +45,17 @@ def get_clique_graph(ug: UndirectedGraph) -> LabelledMixedGraph:
     return LabelledMixedGraph.from_nx(clique_graph)
 
 
-def get_clique_tree(ug: UndirectedGraph):
-    cliques = nx.chordal_graph_cliques(ug)
+def get_clique_tree(ug: UndirectedGraph) -> LabelledMixedGraph:
+    if not isinstance(ug, UndirectedGraph):
+        raise ValueError("Not an UndirectedGraph")
+    cliques = nx.chordal_graph_cliques(ug.to_nx())
     clique_intersection_graph = nx.Graph()
     clique_intersection_graph.add_edges_from(
         [(c1, c2, dict(weight=len(c1 & c2))) for c1, c2 in itr.combinations(cliques, 2) if c1 & c2]
     )
     clique_tree = nx.maximum_spanning_tree(clique_intersection_graph)
     nx.set_edge_attributes(clique_tree, {(c1, c2): c1 & c2 for c1, c2 in clique_tree.edges()}, name='label')
-    return clique_tree
+    return LabelledMixedGraph.from_nx(clique_tree)
 
 
 def edge_neighbors(graph) -> set:
