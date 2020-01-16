@@ -65,7 +65,8 @@ if __name__ == '__main__':
     results_dct = ar_dct.get_alg_results(overwrite=True)
     clique_sizes = dl.max_clique_sizes()
     num_cliques = dl.num_cliques()
-    bound = (np.ceil(np.log2(num_cliques)) + 3) * clique_sizes
+    optimal_ivs = dl.get_verification_optimal_ivs()
+    bound = np.ceil(np.log2(num_cliques)) * clique_sizes + 3*optimal_ivs
     print(bound)
     print(np.where(bound < nnodes))
     above_bound = results_dct > bound

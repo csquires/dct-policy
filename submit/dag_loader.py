@@ -5,6 +5,7 @@ import numpy as np
 from causaldag import DAG
 from utils import write_list, read_list
 import networkx as nx
+from tqdm import tqdm
 
 
 class DagLoader:
@@ -37,7 +38,10 @@ class DagLoader:
     def get_verification_optimal_ivs(self):
         filename = os.path.join(self.dag_folder, 'optimal_num_interventions.txt')
         if not os.path.exists(filename):
-            optimal_ivs = [len(dag.optimal_fully_orienting_interventions()) for dag in self.get_dags()]
+            optimal_ivs = list(tqdm(
+                (len(dag.optimal_fully_orienting_interventions()) for dag in self.get_dags()),
+                total=self.num_dags
+            ))
             write_list(optimal_ivs, filename)
         else:
             optimal_ivs = read_list(filename)
