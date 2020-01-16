@@ -86,8 +86,18 @@ class LabelledMixedGraph:
     # === CONVERTERS
     @classmethod
     def from_nx(cls, nx_graph):
-        undirected = {frozenset({i, j}): nx_graph.get_edge_data(i, j)['label'] for i, j in nx_graph.edges()}
-        return LabelledMixedGraph(nodes=nx_graph.nodes(), undirected=undirected)
+        if isinstance(nx_graph, nx.MultiDiGraph):
+            directed = {(i, j): nx_graph.get_edge_data(i, j)[0]['label'] for i, j in nx_graph.edges()}
+            bidirected_keys = set(directed.keys()) & {(j, i) for i, j in directed}
+            bidirected = {(i, j): directed[(i, j)] for i, j in bidirected_keys}
+            directed = {
+                (i, j): val for (i, j), val in directed.items()
+                if (i, j) not in bidirected_keys and (j, i) not in bidirected_keys
+            }
+            return LabelledMixedGraph(nodes=nx_graph.nodes(), directed=directed, bidirected=bidirected)
+        if isinstance(nx_graph, nx.Graph):
+            undirected = {frozenset({i, j}): nx_graph.get_edge_data(i, j)['label'] for i, j in nx_graph.edges()}
+            return LabelledMixedGraph(nodes=nx_graph.nodes(), undirected=undirected)
 
     def to_nx(self) -> nx.Graph:
         if self._bidirected or self._directed:

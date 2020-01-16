@@ -24,6 +24,9 @@ class DagLoader:
     def get_dags(self, overwrite=False):
         if overwrite or not os.path.exists(self.dag_folder):
             dags = [DAG.from_nx(d) for d in random_chordal_graph2(self.nnodes, self.density, self.num_dags)]
+            if any(len(d.vstructures()) > 0 for d in dags):
+                print([len(d.vstructures()) for d in dags])
+                raise ValueError("DAG has v-structures")
             os.makedirs(os.path.join(self.dag_folder, 'dags'), exist_ok=True)
             for dag, filename in zip(dags, self.dag_filenames):
                 np.save(filename, dag.to_amat()[0])

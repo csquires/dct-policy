@@ -147,7 +147,10 @@ def dct_policy(dag: DAG, verbose=False) -> set:
     intervened_nodes = set()
     if verbose: print("Phase I")
     while True:
-        if len(current_clique_subtree.nodes) <= 1:
+        if len(current_clique_subtree.nodes) == 1:
+            intervened_nodes.update(list(current_clique_subtree.nodes)[0])
+            break
+        if len(current_clique_subtree.nodes) == 0:
             break
         # INTERVENE ON THE CENTRAL CLIQUE
         central_clique = get_tree_centroid(current_clique_subtree, verbose=verbose)

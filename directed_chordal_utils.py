@@ -1,6 +1,34 @@
 import networkx as nx
 import itertools as itr
 import random
+import operator as op
+
+
+def direct_chordal_graph(chordal_graph: nx.Graph):
+    chordal_graph_ = chordal_graph.copy()
+    nodes = chordal_graph.nodes()
+    weights = {node: 0 for node in nodes}
+    order = []
+    while len(order) < chordal_graph.number_of_nodes():
+        max_weight = max(weights.items(), key=op.itemgetter(1))[1]
+        max_weight_nodes = [node for node, weight in weights.items() if weight == max_weight]
+        next_node = random.choice(max_weight_nodes)
+
+        # add 1 to weight of all neighbors
+        for nbr in chordal_graph_.neighbors(next_node):
+            weights[nbr] += 1
+
+        # delete node and add to order
+        del weights[next_node]
+        chordal_graph_.remove_node(next_node)
+        order.append(next_node)
+
+    d = nx.DiGraph()
+    d.add_nodes_from(nodes)
+    for node, nbr in itr.combinations(order, 2):
+        if chordal_graph.has_edge(node, nbr):
+            d.add_edge(node, nbr)
+    return d
 
 
 def random_chordal_graph(nnodes, p=.1, ngraphs=1):
@@ -51,7 +79,7 @@ def random_chordal_graph2(nnodes: int, k: int, ngraphs: int=1, ensure_connected=
                 if t_i.nodes & t_j.nodes: g.add_edge(i, j)
 
             if not ensure_connected or nx.is_connected(g):
-                return g
+                return direct_chordal_graph(g)
     else:
         return [random_chordal_graph2(nnodes, k) for _ in range(ngraphs)]
 
