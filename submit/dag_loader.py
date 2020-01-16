@@ -3,6 +3,8 @@ from submit.config import DATA_FOLDER
 from directed_chordal_utils import random_chordal_graph2
 import numpy as np
 from causaldag import DAG
+from utils import write_list, read_list
+import networkx as nx
 
 
 class DagLoader:
@@ -28,6 +30,25 @@ class DagLoader:
         else:
             dags = [DAG.from_amat(np.load(filename)) for filename in self.dag_filenames]
         return dags
+
+    def get_verification_optimal_ivs(self):
+        filename = os.path.join(self.dag_folder, 'optimal_num_interventions.txt')
+        if not os.path.exists(filename):
+            optimal_ivs = [len(dag.optimal_fully_orienting_interventions()) for dag in self.get_dags()]
+            write_list(optimal_ivs, filename)
+        else:
+            optimal_ivs = read_list(filename)
+        return optimal_ivs
+
+    def max_clique_sizes(self):
+        clique_numbers = np.array([
+            max(map(len, nx.chordal_graph_cliques(dag.to_nx().to_undirected())))
+            for dag in self.get_dags()
+        ])
+        return clique_numbers
+
+    def num_cliques(self):
+        return np.array([len(nx.chordal_graph_cliques(dag.to_nx().to_undirected())) for dag in self.get_dags()])
 
 
 if __name__ == '__main__':

@@ -90,7 +90,7 @@ def get_induced_chordal(clique_tree):
     return induced_graph
 
 
-def get_tree_centroid(tree: UndirectedGraph, verbose=True):
+def get_tree_centroid(tree: UndirectedGraph, verbose=False):
     tree = tree.to_nx()
     nnodes = tree.number_of_nodes()
 
@@ -106,6 +106,7 @@ def get_tree_centroid(tree: UndirectedGraph, verbose=True):
         if len(max_subtree) <= nnodes/2:
             return v
         candidate_nodes = max_subtree
+        if verbose: print(f"Candidate nodes: {candidate_nodes}")
 
 
 if __name__ == '__main__':
