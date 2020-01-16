@@ -25,7 +25,6 @@ class AlgRunner:
     def get_alg_results(self, overwrite=False):
         result_filename = os.path.join(self.alg_folder, f'num_nodes_list.npy')
         if overwrite or not os.path.exists(self.alg_folder):
-            print('here')
             dags = self.dag_loader.get_dags()
             os.makedirs(self.alg_folder, exist_ok=True)
             num_nodes_list = []
@@ -36,7 +35,6 @@ class AlgRunner:
             np.save(result_filename, np.array(num_nodes_list))
             return np.array(num_nodes_list)
         else:
-            print(os.path.exists(self.alg_folder))
             return np.load(result_filename)
 
 

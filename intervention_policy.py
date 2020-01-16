@@ -137,7 +137,7 @@ def intervention_policy(ug: UndirectedGraph, dag: DAG):
         all_extra_nodes.update(extra_nodes)
 
 
-def dct_policy(dag: DAG) -> set:
+def dct_policy(dag: DAG, verbose=True) -> set:
     ug = UndirectedGraph(nodes=dag.nodes, edges=dag.skeleton)
     full_clique_tree = get_clique_tree(ug)
     current_clique_subtree = full_clique_tree
@@ -145,15 +145,21 @@ def dct_policy(dag: DAG) -> set:
     dcg = get_directed_clique_graph(dag)
 
     intervened_nodes = set()
+    if verbose: print("Phase I")
     while True:
+        if len(current_clique_subtree.nodes) == 1:
+            break
         # INTERVENE ON THE CENTRAL CLIQUE
         central_clique = get_tree_centroid(current_clique_subtree)
+        if verbose: print(f'Picked central clique: {central_clique}')
+
         full_clique_tree, clique_graph, extra_nodes = apply_clique_intervention(
             full_clique_tree,
-            _,
+            None,
             clique_graph,
             central_clique,
-            dcg
+            dcg,
+            verbose=verbose
         )
 
         # RECORD THE NODES THAT WERE INTERVENED ON
@@ -165,15 +171,16 @@ def dct_policy(dag: DAG) -> set:
             clique for clique in full_clique_tree._nodes
             if full_clique_tree.neighbor_degree_of(clique) != 0
         }
-        if len(remaining_cliques) == 0:
-            break
+        if verbose: print(f"Remaining cliques: {remaining_cliques}")
         current_clique_subtree = current_clique_subtree.induced_graph(remaining_cliques)
 
+    if verbose: print("Phase II")
     while True:
         source_cliques = {clique for clique in clique_graph._nodes if clique_graph.indegree_of(clique) == 0}
         if len(source_cliques) == 0:
             break
         next_clique = random.choice(source_cliques)
+        if verbose: print(f"Next clique: {next_clique}")
         clique_graph.remove_node(next_clique)
 
         # intervene on all nodes in this clique if it doesn't have a residual of size one

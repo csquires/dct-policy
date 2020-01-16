@@ -56,6 +56,10 @@ class LabelledMixedGraph:
 
     # === PROPERTIES
     @property
+    def nodes(self):
+        return set(self._nodes)
+
+    @property
     def directed(self):
         return dict(self._directed)
 
@@ -95,7 +99,12 @@ class LabelledMixedGraph:
         return nx_graph
 
     def induced_graph(self, nodes):
-        raise NotImplementedError
+        return LabelledMixedGraph(
+            nodes,
+            directed={(i, j): val for (i, j), val in self._directed.items() if i in nodes and j in nodes},
+            bidirected={(i, j): val for (i, j), val in self._bidirected.items() if i in nodes and j in nodes},
+            undirected={(i, j): val for (i, j), val in self._undirected.items() if i in nodes and j in nodes},
+        )
 
     def to_undirected(self):
         edges = {

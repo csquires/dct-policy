@@ -6,7 +6,7 @@ from causaldag import UndirectedGraph, DAG
 
 
 def get_directed_clique_graph(dag: DAG) -> LabelledMixedGraph:
-    ug = nx.Graph()
+    ug = UndirectedGraph(nodes=dag._nodes, edges=dag._arcs)
     ug.add_edges_from(dag.arcs)
     clique_graph = get_clique_graph(ug)
     directed_edges = dict()
@@ -50,6 +50,7 @@ def get_clique_tree(ug: UndirectedGraph) -> LabelledMixedGraph:
         raise ValueError("Not an UndirectedGraph")
     cliques = nx.chordal_graph_cliques(ug.to_nx())
     clique_intersection_graph = nx.Graph()
+    clique_intersection_graph.add_nodes_from(cliques)
     clique_intersection_graph.add_edges_from(
         [(c1, c2, dict(weight=len(c1 & c2))) for c1, c2 in itr.combinations(cliques, 2) if c1 & c2]
     )
@@ -89,18 +90,20 @@ def get_induced_chordal(clique_tree):
     return induced_graph
 
 
-def get_tree_centroid(tree: nx.Graph):
+def get_tree_centroid(tree: UndirectedGraph, verbose=True):
+    tree = tree.to_nx()
     nnodes = tree.number_of_nodes()
 
     candidate_nodes = list(tree.nodes())
     while True:
         v = random.choice(candidate_nodes)
+        if verbose: print(f"Finding candidate centroid: picked {v}")
         forest = tree.copy()
         forest.remove_node(v)
         subtrees = [list(s) for s in nx.connected_components(forest)]
         max_subtree = max(subtrees, key=lambda s: len(s))
 
-        if len(max_subtree) < nnodes/2:
+        if len(max_subtree) <= nnodes/2:
             return v
         candidate_nodes = max_subtree
 
