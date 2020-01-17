@@ -25,6 +25,17 @@ def get_directed_clique_graph(dag: DAG) -> LabelledMixedGraph:
 
 
 def get_clique_graph(ug: UndirectedGraph) -> LabelledMixedGraph:
+    """
+    Compute the (reduced) clique graph of a chordal graph, i.e., the union of all clique trees.
+
+    Parameters
+    ----------
+    ug
+
+    Returns
+    -------
+
+    """
     if not isinstance(ug, UndirectedGraph):
         raise ValueError("Not an UndirectedGraph")
     clique_tree = get_clique_tree(ug)
@@ -46,6 +57,17 @@ def get_clique_graph(ug: UndirectedGraph) -> LabelledMixedGraph:
 
 
 def get_clique_tree(ug: UndirectedGraph) -> LabelledMixedGraph:
+    """
+    Compute a clique tree for a chordal graph by finding a max-weight spanning tree of the clique intersection graph.
+
+    Parameters
+    ----------
+    ug
+
+    Returns
+    -------
+
+    """
     if not isinstance(ug, UndirectedGraph):
         raise ValueError("Not an UndirectedGraph")
     cliques = nx.chordal_graph_cliques(ug.to_nx())
@@ -91,6 +113,19 @@ def get_induced_chordal(clique_tree):
 
 
 def get_tree_centroid(tree: UndirectedGraph, verbose=False):
+    """
+    Find a centroid of a tree, i.e., a node whose removal splits the tree into a forest with no more than
+    half of the nodes in any component.
+
+    Parameters
+    ----------
+    tree
+    verbose
+
+    Returns
+    -------
+
+    """
     tree = tree.to_nx()
     nnodes = tree.number_of_nodes()
 

@@ -5,6 +5,19 @@ import random
 
 
 def incomparable(edge1, edge2, clique_graph):
+    """
+    Check if `edge1` and `edge2` have incomparable labels in the given clique graph.
+
+    Parameters
+    ----------
+    edge1
+    edge2
+    clique_graph
+
+    Returns
+    -------
+
+    """
     label1 = clique_graph.get_label(edge1)
     label2 = clique_graph.get_label(edge2)
     return not (label1 <= label2 or label2 < label1)
@@ -138,6 +151,18 @@ def intervention_policy(ug: UndirectedGraph, dag: DAG):
 
 
 def dct_policy(dag: DAG, verbose=False) -> set:
+    """
+    Use the DCT policy to fully orient the given DAG, as if it was an undirected graph.
+
+    Parameters
+    ----------
+    dag
+    verbose
+
+    Returns
+    -------
+
+    """
     ug = UndirectedGraph(nodes=dag.nodes, edges=dag.skeleton)
     full_clique_tree = get_clique_tree(ug)
     current_clique_subtree = full_clique_tree

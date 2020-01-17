@@ -115,6 +115,7 @@ def draw_directed_clique_graph(dcg):
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
+    from causaldag import DAG
 
     # g = nx.DiGraph()
     # g.add_edges_from([
@@ -136,9 +137,21 @@ if __name__ == '__main__':
     # plt.ion()
     # draw_directed_clique_graph(d)
 
-    gs = random_chordal_graph2(10, 3, 50)
-    are_chordal = [nx.is_chordal(g) for g in gs]
-    print(all(are_chordal))
-    print([len(g.edges) for g in gs])
+    # gs = random_chordal_graph2(10, 3, 50)
+    # are_chordal = [nx.is_chordal(g) for g in gs]
+    # print(all(are_chordal))
+    # print([len(g.edges) for g in gs])
 
+    d = DAG.from_nx(random_chordal_graph2(50, 5))
+    dct = d.directed_clique_tree()
+    sdct = d.simplified_directed_clique_tree()
+    print(dct.number_of_nodes())
+    print(sdct.number_of_nodes())
+    print(dct.nodes())
+    print(sdct.nodes())
 
+    from mixed_graph import LabelledMixedGraph
+
+    dct_ = LabelledMixedGraph.from_nx(dct)
+    print({c for c in sdct if len(c) > 1})
+    print(dct_.bidirected)
