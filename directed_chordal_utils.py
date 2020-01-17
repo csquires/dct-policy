@@ -2,6 +2,8 @@ import networkx as nx
 import itertools as itr
 import random
 import operator as op
+from typing import Union, List
+from causaldag import DAG
 
 
 def direct_chordal_graph(chordal_graph: nx.Graph):
@@ -47,7 +49,7 @@ def random_chordal_graph(nnodes, p=.1, ngraphs=1):
         return [random_chordal_graph(nnodes, p=p) for _ in range(ngraphs)]
 
 
-def random_chordal_graph2(nnodes: int, k: int, ngraphs: int=1, ensure_connected=True):
+def random_chordal_graph2(nnodes: int, k: int, ngraphs: int=1, ensure_connected=True) -> Union[List[nx.DiGraph], nx.DiGraph]:
     if ngraphs == 1:
         for ix in itr.count():
             if ix > 100:
