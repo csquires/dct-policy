@@ -1,5 +1,5 @@
 import os
-from submit.dag_loader import DagLoader
+from submit.dag_loader import DagLoader, DagSampler
 from intervention_policy import dct_policy
 from submit.baselines import random_policy, max_degree_policy
 from utils import write_list
@@ -56,8 +56,8 @@ class AlgRunner:
 if __name__ == '__main__':
     from mixed_graph import LabelledMixedGraph
 
-    nnodes = 100
-    dl = DagLoader(nnodes, 4, 100)
+    nnodes = 50
+    dl = DagLoader(nnodes, 5, DagSampler.TREE_PLUS, dict(e_min=2, e_max=5))
     dl.get_dags(overwrite=True)
     ar_random = AlgRunner('random', dl)
     ar_dct = AlgRunner('dct', dl)
@@ -67,7 +67,19 @@ if __name__ == '__main__':
     num_cliques = dl.num_cliques()
     optimal_ivs = dl.get_verification_optimal_ivs()
     bound = np.ceil(np.log2(num_cliques)) * clique_sizes + 3*optimal_ivs
+
+    print("Number of cliques")
+    print(num_cliques)
+
+    print("Clique sizes")
+    print(clique_sizes)
+
+    print("Verification optimal")
+    print(optimal_ivs)
+
+    print("Bound")
     print(bound)
+
     print(np.where(bound < nnodes))
     above_bound = results_dct > bound
     print(np.where(above_bound))

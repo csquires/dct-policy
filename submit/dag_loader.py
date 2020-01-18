@@ -1,22 +1,30 @@
 import os
 from submit.config import DATA_FOLDER
-from directed_chordal_utils import random_chordal_graph2
+from directed_chordal_utils import random_chordal_graph2, tree_plus
 import numpy as np
 from causaldag import DAG
 from utils import write_list, read_list
 import networkx as nx
 from tqdm import tqdm
+from enum import Enum
+
+
+class DagSampler(Enum):
+    CHORDAL2 = 1
+    TREE_PLUS = 2
 
 
 class DagLoader:
-    def __init__(self, nnodes: int, density: int, num_dags: int):
+    def __init__(self, nnodes: int, num_dags: int, sampler: DagSampler, other_params: dict):
         self.nnodes = nnodes
-        self.density = density
+        self.other_params = other_params
         self.num_dags = num_dags
+        self.sampler = sampler
 
     @property
     def dag_folder(self):
-        return os.path.join(DATA_FOLDER, f'nnodes={self.nnodes},density={self.density},num_dags={self.num_dags}')
+        other_params = ','.join([f"{key}={value}" for key, value in self.other_params.items()])
+        return os.path.join(DATA_FOLDER, f'sampler={self.sampler.name},nnodes={self.nnodes},num_dags={self.num_dags},{other_params}')
 
     @property
     def dag_filenames(self):
@@ -24,7 +32,18 @@ class DagLoader:
 
     def get_dags(self, overwrite=False):
         if overwrite or not os.path.exists(self.dag_folder):
-            dags = [DAG.from_nx(d) for d in random_chordal_graph2(self.nnodes, self.density, self.num_dags)]
+            if self.sampler == DagSampler.CHORDAL2:
+                dags = [
+                    DAG.from_nx(d) for d in
+                    random_chordal_graph2(self.nnodes, self.other_params['density'], self.num_dags)
+                ]
+            elif self.sampler == DagSampler.TREE_PLUS:
+                dags = [
+                    DAG.from_nx(d) for d in
+                    tree_plus(self.nnodes, self.other_params['e_min'], self.other_params['e_max'], self.num_dags)
+                ]
+            else:
+                raise ValueError
             if any(len(d.vstructures()) > 0 for d in dags):
                 print([len(d.vstructures()) for d in dags])
                 raise ValueError("DAG has v-structures")

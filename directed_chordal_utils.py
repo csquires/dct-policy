@@ -6,6 +6,35 @@ from typing import Union, List
 from causaldag import DAG
 
 
+def random_directed_tree(nnodes: int):
+    g = nx.random_tree(nnodes)
+    root = random.randint(0, nnodes-1)
+    d = nx.DiGraph()
+
+    queue = [root]
+    while queue:
+        current_node = queue.pop()
+        nbrs = list(g.neighbors(current_node))
+        d.add_edges_from([(current_node, nbr) for nbr in nbrs])
+        queue += nbrs
+        g.remove_node(current_node)
+    return d
+
+
+def fill_vstructures(g: nx.DiGraph, order=None):
+    if order is None:
+        order = nx.topological_sort(g)
+    node2ix = {node: ix for ix, node in enumerate(order)}
+
+    for node in reversed(order):
+        parents = g.predecessors(node)
+        for p1, p2 in itr.combinations(parents, 2):
+            p1_, p2_ = (p1, p2) if node2ix[p1] < node2ix[p2] else (p2, p1)
+            g.add_edge(p1_, p2_)
+
+    return g
+
+
 def direct_chordal_graph(chordal_graph: nx.Graph):
     chordal_graph_ = chordal_graph.copy()
     nodes = chordal_graph.nodes()
@@ -49,7 +78,20 @@ def random_chordal_graph(nnodes, p=.1, ngraphs=1):
         return [random_chordal_graph(nnodes, p=p) for _ in range(ngraphs)]
 
 
-def random_chordal_graph2(nnodes: int, k: int, ngraphs: int=1, ensure_connected=True) -> Union[List[nx.DiGraph], nx.DiGraph]:
+def tree_plus(nnodes: int, e_min: int, e_max: int, ngraphs: int = 1):
+    if ngraphs == 1:
+        g = random_directed_tree(nnodes)
+        order = list(nx.topological_sort(g))
+        num_extra_edges = random.randint(e_min, e_max)
+        extra_edges = random.sample(list(itr.combinations(order, 2)), num_extra_edges)
+        g.add_edges_from(extra_edges)
+        fill_vstructures(g, order)
+        return g
+    else:
+        return [tree_plus(nnodes, e_min, e_max) for _ in range(ngraphs)]
+
+
+def random_chordal_graph2(nnodes: int, k: int, ngraphs: int = 1, ensure_connected=True) -> Union[List[nx.DiGraph], nx.DiGraph]:
     if ngraphs == 1:
         for ix in itr.count():
             if ix > 100:
@@ -144,16 +186,18 @@ if __name__ == '__main__':
     # print(all(are_chordal))
     # print([len(g.edges) for g in gs])
 
-    d = DAG.from_nx(random_chordal_graph2(50, 5))
-    dct = d.directed_clique_tree()
-    sdct = d.simplified_directed_clique_tree()
-    print(dct.number_of_nodes())
-    print(sdct.number_of_nodes())
-    print(dct.nodes())
-    print(sdct.nodes())
+    # d = DAG.from_nx(random_chordal_graph2(50, 5))
+    # dct = d.directed_clique_tree()
+    # sdct = d.simplified_directed_clique_tree()
+    # print(dct.number_of_nodes())
+    # print(sdct.number_of_nodes())
+    # print(dct.nodes())
+    # print(sdct.nodes())
+    #
+    # from mixed_graph import LabelledMixedGraph
+    #
+    # dct_ = LabelledMixedGraph.from_nx(dct)
+    # print({c for c in sdct if len(c) > 1})
+    # print(dct_.bidirected)
 
-    from mixed_graph import LabelledMixedGraph
-
-    dct_ = LabelledMixedGraph.from_nx(dct)
-    print({c for c in sdct if len(c) > 1})
-    print(dct_.bidirected)
+    dags = tree_plus(20, 2, 5, 20)
