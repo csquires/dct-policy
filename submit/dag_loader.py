@@ -38,13 +38,13 @@ class DagLoader:
     def get_verification_optimal_ivs(self):
         filename = os.path.join(self.dag_folder, 'optimal_num_interventions.txt')
         if not os.path.exists(filename):
-            optimal_ivs = list(tqdm(
-                (len(dag.optimal_fully_orienting_interventions()) for dag in self.get_dags()),
+            optimal_ivs = np.array(list(tqdm(
+                (len(dag.optimal_fully_orienting_interventions(new=True)) for dag in self.get_dags()),
                 total=self.num_dags
-            ))
-            write_list(optimal_ivs, filename)
+            )))
+            np.savetxt(filename, optimal_ivs)
         else:
-            optimal_ivs = read_list(filename)
+            optimal_ivs = np.loadtxt(filename)
         return optimal_ivs
 
     def max_clique_sizes(self):
