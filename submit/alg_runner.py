@@ -44,9 +44,9 @@ class AlgRunner:
         else:
             return np.load(result_filename)
 
-    def specific_dag(self, ix):
+    def specific_dag(self, ix, verbose=False):
         dag = self.dag_loader.get_dags()[ix]
-        intervened_nodes = ALG_DICT[self.alg](dag, verbose=False)
+        intervened_nodes = ALG_DICT[self.alg](dag, verbose=verbose)
         print(intervened_nodes)
         cpdag = dag.interventional_cpdag([{node} for node in intervened_nodes], cpdag=dag.cpdag())
         cpdag.to_complete_pdag()
@@ -55,8 +55,11 @@ class AlgRunner:
 
 if __name__ == '__main__':
     from mixed_graph import LabelledMixedGraph
+    import random
+    from chordal_utils import get_directed_clique_graph
 
-    nnodes = 50
+    nnodes = 16
+    random.seed(80123498065)
     dl = DagLoader(nnodes, 5, DagSampler.TREE_PLUS, dict(e_min=2, e_max=5))
     dl.get_dags(overwrite=True)
     ar_random = AlgRunner('random', dl)
@@ -86,9 +89,13 @@ if __name__ == '__main__':
     print(np.mean(results_random))
     print(np.mean(results_dct))
 
-    ix = 81
-    ar_dct.specific_dag(ix)
+    ix = 0
+    ar_dct.specific_dag(ix, verbose=True)
     ar_random.specific_dag(ix)
     d = dl.get_dags()[ix]
     dct = d.directed_clique_tree()
+    dcg = get_directed_clique_graph(d)
     dct_ = LabelledMixedGraph.from_nx(dct)
+    print(optimal_ivs[0])
+
+

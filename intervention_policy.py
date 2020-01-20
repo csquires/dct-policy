@@ -117,6 +117,7 @@ def apply_clique_intervention(
                 upstream_c2 = new_clique_graph.parents_of(c2) | new_clique_graph.spouses_of(c2)
 
                 if upstream_c1 & upstream_c2:  # if c1 and c2 have a common parent/spouse, then spend interventions
+                    print(f"Intervening on extra nodes {c1 & c2} to orient {c1}-{c2} with common_parents = {upstream_c1 & upstream_c2}")
                     extra_nodes.update(c1 & c2)
                     add_edge_direction(new_clique_graph, new_clique_tree, c1, c2, dcg, verbose=verbose)
             else:
@@ -170,6 +171,8 @@ def dct_policy(dag: DAG, verbose=False) -> set:
     dcg = get_directed_clique_graph(dag)
 
     intervened_nodes = set()
+    regular_phase1 = set()
+    all_extra_nodes = set()
     if verbose: print("Phase I")
     while True:
         if len(current_clique_subtree.nodes) == 1:
@@ -178,7 +181,7 @@ def dct_policy(dag: DAG, verbose=False) -> set:
         if len(current_clique_subtree.nodes) == 0:
             break
         # INTERVENE ON THE CENTRAL CLIQUE
-        central_clique = get_tree_centroid(current_clique_subtree, verbose=verbose)
+        central_clique = get_tree_centroid(current_clique_subtree, verbose=False)
         if verbose: print(f'Picked central clique: {central_clique}')
 
         full_clique_tree, clique_graph, extra_nodes = apply_clique_intervention(
@@ -187,12 +190,14 @@ def dct_policy(dag: DAG, verbose=False) -> set:
             clique_graph,
             central_clique,
             dcg,
-            verbose=verbose
+            verbose=False
         )
 
         # RECORD THE NODES THAT WERE INTERVENED ON
         intervened_nodes.update(central_clique)
         intervened_nodes.update(extra_nodes)
+        regular_phase1.update(central_clique)
+        all_extra_nodes.update(extra_nodes)
 
         # TAKE SUBTREE
         remaining_cliques = {
@@ -201,19 +206,26 @@ def dct_policy(dag: DAG, verbose=False) -> set:
         }
         if verbose: print(f"Remaining cliques: {remaining_cliques}")
         current_clique_subtree = current_clique_subtree.induced_graph(remaining_cliques)
+    if verbose: print(f"*** {len(regular_phase1)} regular intervened in Phase I")
 
     if verbose: print("Phase II")
+    phase2_nodes = set()
+    resolved_cliques = set()
     while True:
         source_cliques = {clique for clique in clique_graph._nodes if clique_graph.indegree_of(clique) == 0}
         if len(source_cliques) == 0:
             break
         next_clique = random.choice(list(source_cliques))
-        if verbose: print(f"Next clique: {next_clique}")
         clique_graph.remove_node(next_clique)
+        resolved_cliques.update(next_clique)
 
         # intervene on all nodes in this clique if it doesn't have a residual of size one
-        if len(next_clique - intervened_nodes) > 1:
+        if len(next_clique - resolved_cliques) > 1:
+            if verbose: print(f"intervened on {next_clique}")
             intervened_nodes.update(next_clique)
+            phase2_nodes.update(next_clique)
+    if verbose: print(f"*** {len(phase2_nodes)} intervened in Phase II")
+    if verbose: print(f"extra nodes not intervened in Phase II: {all_extra_nodes - phase2_nodes}")
 
     return intervened_nodes
 
