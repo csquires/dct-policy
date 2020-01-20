@@ -113,7 +113,7 @@ def apply_clique_intervention(
                 if verbose: print(f"Directed {c1}->{c2} by propagation")
             elif any(incomparable(onto_edge, (c1, c2), clique_graph) for onto_edge in onto_c2):  # propagate C2 -> C1
                 new_clique_graph.to_directed(c2, c1)
-                new_clique_tree.to_directed(c1, c2)
+                new_clique_tree.to_directed(c2, c1)
                 if verbose: print(f"Directed {c2}->{c1} by propagation")
             else:
                 if verbose:
@@ -184,7 +184,7 @@ def dct_policy(dag: DAG, verbose=False, check=True) -> set:
 
     ug = UndirectedGraph(nodes=dag.nodes, edges=dag.skeleton)
     full_clique_tree = get_clique_tree(ug)
-    print(full_clique_tree.num_edges)
+    # print(full_clique_tree.num_edges)
     current_clique_subtree = full_clique_tree
     clique_graph = get_clique_graph(ug)
     dcg = get_directed_clique_graph(dag)
@@ -236,26 +236,26 @@ def dct_policy(dag: DAG, verbose=False, check=True) -> set:
     resolved_cliques = set()
     # print(f"Clique graph: directed={clique_graph.directed}, bidirected = {clique_graph.bidirected}")
     # print(f"Clique tree: directed={full_clique_tree.directed}, bidirected = {full_clique_tree.bidirected}")
-    if check:
-        print(f"False negatives: directed={set(true_dct.directed.keys()) - set(full_clique_tree.directed.keys())}, "
-              f"bidirected={set(true_dct.bidirected.keys()) - set(full_clique_tree.bidirected.keys())}")
-        print(f"False positives: directed={set(full_clique_tree.directed.keys()) - set(true_dct.directed.keys())}, "
-              f"bidirected={set(full_clique_tree.bidirected.keys()) - set(true_dct.bidirected.keys())}")
-        print(full_clique_tree.num_edges)
-        print(true_dct.num_edges)
-        print(full_clique_tree.to_undirected().undirected_keys - true_dct.to_undirected().undirected_keys)
-        print(true_dct.to_undirected().undirected_keys - full_clique_tree.to_undirected().undirected_keys)
-        print(full_clique_tree.num_undirected)
-        print('==== graph =====')
-        print(set(dcg.directed.keys()))
-        print(set(clique_graph.directed.keys()))
-        print(f"False negatives: directed={set(dcg.directed.keys()) - set(clique_graph.directed.keys())}, "
-              f"bidirected={set(dcg.bidirected.keys()) - set(clique_graph.bidirected.keys())}")
-        print(f"False positives: directed={set(clique_graph.directed.keys()) - set(dcg.directed.keys())}, "
-              f"bidirected={set(clique_graph.bidirected.keys()) - set(dcg.bidirected.keys())}")
-        print(clique_graph.num_edges)
-        print(dcg.num_edges)
-        print(clique_graph.num_undirected)
+    # if check:
+    #     print(f"False negatives: directed={set(true_dct.directed.keys()) - set(full_clique_tree.directed.keys())}, "
+    #           f"bidirected={set(true_dct.bidirected.keys()) - set(full_clique_tree.bidirected.keys())}")
+    #     print(f"False positives: directed={set(full_clique_tree.directed.keys()) - set(true_dct.directed.keys())}, "
+    #           f"bidirected={set(full_clique_tree.bidirected.keys()) - set(true_dct.bidirected.keys())}")
+    #     print(full_clique_tree.num_edges)
+    #     print(true_dct.num_edges)
+    #     print(full_clique_tree.to_undirected().undirected_keys - true_dct.to_undirected().undirected_keys)
+    #     print(true_dct.to_undirected().undirected_keys - full_clique_tree.to_undirected().undirected_keys)
+    #     print(full_clique_tree.num_undirected)
+    #     print('==== graph =====')
+    #     print(set(dcg.directed.keys()))
+    #     print(set(clique_graph.directed.keys()))
+    #     print(f"False negatives: directed={set(dcg.directed.keys()) - set(clique_graph.directed.keys())}, "
+    #           f"bidirected={set(dcg.bidirected.keys()) - set(clique_graph.bidirected.keys())}")
+    #     print(f"False positives: directed={set(clique_graph.directed.keys()) - set(dcg.directed.keys())}, "
+    #           f"bidirected={set(clique_graph.bidirected.keys()) - set(dcg.bidirected.keys())}")
+    #     print(clique_graph.num_edges)
+    #     print(dcg.num_edges)
+    #     print(clique_graph.num_undirected)
 
     print(full_clique_tree.directed_keys)
     nx_clique_tree = full_clique_tree.to_nx()
