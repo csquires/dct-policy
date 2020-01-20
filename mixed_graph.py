@@ -1,5 +1,6 @@
 from collections import defaultdict
 import networkx as nx
+from typing import Union
 
 
 class LabelledMixedGraph:
@@ -72,6 +73,18 @@ class LabelledMixedGraph:
         return dict(self._bidirected)
 
     @property
+    def directed_keys(self):
+        return set(self._directed.keys())
+
+    @property
+    def bidirected_keys(self):
+        return set(self._bidirected.keys())
+
+    @property
+    def undirected_keys(self):
+        return set(self._undirected.keys())
+
+    @property
     def num_directed(self):
         return len(self._directed)
 
@@ -82,6 +95,10 @@ class LabelledMixedGraph:
     @property
     def num_bidirected(self):
         return len(self._bidirected)
+
+    @property
+    def num_edges(self):
+        return self.num_bidirected + self.num_directed + self.num_undirected
 
     # === CONVERTERS
     @classmethod
@@ -99,14 +116,25 @@ class LabelledMixedGraph:
             undirected = {frozenset({i, j}): nx_graph.get_edge_data(i, j)['label'] for i, j in nx_graph.edges()}
             return LabelledMixedGraph(nodes=nx_graph.nodes(), undirected=undirected)
 
-    def to_nx(self) -> nx.Graph:
-        if self._bidirected or self._directed:
-            raise ValueError("Can only convert if the graph has only undirected edges")
-        nx_graph = nx.Graph()
-        nx_graph.add_nodes_from(self._nodes)
-        nx_graph.add_edges_from(self._undirected.keys())
-        nx.set_edge_attributes(nx_graph, self._undirected, 'label')
-        return nx_graph
+    def to_nx(self) -> Union[nx.Graph, nx.DiGraph]:
+        if not self._undirected:
+            nx_graph = nx.DiGraph()
+            nx_graph.add_nodes_from(self._nodes)
+            nx_graph.add_edges_from(self._directed.keys())
+            bidirected = {(i, j) for i, j in self._bidirected.keys()}
+            nx_graph.add_edges_from(bidirected | {(j, i) for i, j in bidirected})
+            nx.set_edge_attributes(nx_graph, self._directed, name='label')
+            nx.set_edge_attributes(nx_graph, self._bidirected, name='label')
+            nx.set_edge_attributes(nx_graph, {(j, i): l for (i, j), l in self.bidirected.items()}, name='label')
+            return nx_graph
+        if not self._directed and not self._bidirected:
+            nx_graph = nx.Graph()
+            nx_graph.add_nodes_from(self._nodes)
+            nx_graph.add_edges_from(self._undirected.keys())
+            nx.set_edge_attributes(nx_graph, self._undirected, 'label')
+            return nx_graph
+        else:
+            raise ValueError("Can only convert if the graph has only undirected edges or no undirected edges")
 
     def induced_graph(self, nodes):
         return LabelledMixedGraph(
@@ -269,16 +297,18 @@ class LabelledMixedGraph:
                 raise e
 
     # === MUTATORS
-    def to_directed(self, i, j):
+    def to_directed(self, i, j, check_exists=True):
         label = self.remove_bidirected(i, j)
         label = self.remove_undirected(i, j) if label is None else label
-        self.add_directed(i, j, label)
+        if label or not check_exists:
+            self.add_directed(i, j, label)
 
-    def to_bidirected(self, i, j):
+    def to_bidirected(self, i, j, check_exists=True):
         label = self.remove_undirected(i, j)
         label = self.remove_directed(i, j) if label is None else label
         label = self.remove_directed(j, i) if label is None else label
-        self.add_bidirected(i, j, label)
+        if label or not check_exists:
+            self.add_bidirected(i, j, label)
 
 
 
