@@ -296,6 +296,24 @@ class LabelledMixedGraph:
             else:
                 raise e
 
+    def remove_all_directed(self):
+        for i, j in self._directed:
+            self._parents[j].remove(i)
+            self._children[i].remove(j)
+        self._directed = defaultdict(set)
+
+    def remove_all_bidirected(self):
+        for i, j in self._bidirected:
+            self._spouses[i].remove(j)
+            self._spouses[j].remove(i)
+        self._bidirected = defaultdict(set)
+
+    def remove_all_undirected(self):
+        for i, j in self._undirected:
+            self._neighbors[i].remove(j)
+            self._neighbors[j].remove(i)
+        self._undirected = defaultdict(set)
+
     # === MUTATORS
     def to_directed(self, i, j, check_exists=True):
         label = self.remove_bidirected(i, j)
@@ -309,6 +327,12 @@ class LabelledMixedGraph:
         label = self.remove_directed(j, i) if label is None else label
         if label or not check_exists:
             self.add_bidirected(i, j, label)
+
+    def all_to_undirected(self):
+        self._undirected.update({frozenset({i, j}): label for (i, j), label in self._directed.items()})
+        self._undirected.update({frozenset({i, j}): label for (i, j), label in self._bidirected.items()})
+        self.remove_all_directed()
+        self.remove_all_bidirected()
 
 
 

@@ -225,6 +225,12 @@ def dct_policy(dag: DAG, verbose=False, check=True) -> set:
         }
         if verbose: print(f"Remaining cliques: {remaining_cliques}")
         current_clique_subtree = current_clique_subtree.induced_graph(remaining_cliques)
+
+    cg = clique_graph.copy()
+    cg.remove_all_undirected()
+    cg.all_to_undirected()
+    cg_nx = cg.to_nx()
+    print('connected', nx.is_connected(cg_nx))
     if verbose: print(f"*** {len(regular_phase1)} regular intervened in Phase I")
     if check:
         if log_num_cliques*clique_size < len(regular_phase1):
@@ -257,11 +263,11 @@ def dct_policy(dag: DAG, verbose=False, check=True) -> set:
     #     print(dcg.num_edges)
     #     print(clique_graph.num_undirected)
 
-    print(full_clique_tree.directed_keys)
+    # print(full_clique_tree.directed_keys)
     nx_clique_tree = full_clique_tree.to_nx()
     clique2ancestors = {c: nx.ancestors(nx_clique_tree, c) for c in full_clique_tree.nodes}
     sorted_cliques = sorted(clique2ancestors.items(), key=lambda x: len(x[1]))
-    print(sorted_cliques)
+    # print(sorted_cliques)
 
     for next_clique, _ in sorted_cliques:
         # source_cliques = {clique for clique in clique_graph._nodes if clique_graph.indegree_of(clique) == 0}
@@ -330,7 +336,7 @@ if __name__ == '__main__':
     cg = dcg.to_undirected()
 
     iv_clique = 3
-    nct, ncg, extra_edges = apply_clique_intervention(ct, None, cg, iv_clique, dcg, verbose=True)
+    nct, ncg, extra_edges = apply_clique_intervention(ct, None, cg, iv_clique, dcg, verbose=False)
     print(nct.undirected)
 
 
