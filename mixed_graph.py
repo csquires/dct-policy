@@ -32,7 +32,8 @@ class LabelledMixedGraph:
             self._nodes.add(i)
             self._nodes.add(j)
         for node in self._nodes:
-            self._adjacent[node] = self._children[node] | self._parents[node] | self._spouses[node] | self._neighbors[node]
+            self._adjacent[node] = self._children[node] | self._parents[node] | self._spouses[node] | self._neighbors[
+                node]
 
     # === BUILT-INS
     @property
@@ -157,10 +158,13 @@ class LabelledMixedGraph:
         return (i, j) in self._directed
 
     def has_bidirected(self, edge):
-        return frozenset(*edge) in self._bidirected
+        return frozenset({*edge}) in self._bidirected
 
     def has_undirected(self, edge):
-        return frozenset(*edge) in self._undirected
+        return frozenset({*edge}) in self._undirected
+
+    def has_any_edge(self, edge):
+        return self.has_bidirected(*edge) or self.has_bidirected(edge) or self.has_undirected(edge)
 
     # === NODE-WISE SETS
     def indegree_of(self, node):
@@ -296,6 +300,14 @@ class LabelledMixedGraph:
             else:
                 raise e
 
+    def remove_edge(self, i, j, ignore_error=True):
+        label = self.remove_directed(i, j)
+        label = self.remove_bidirected(i, j) if not label else label
+        label = self.remove_undirected(i, j) if not label else label
+        if not label and not ignore_error:
+            raise KeyError("i-j is not an edge in this graph")
+        return label
+
     def remove_all_directed(self):
         for i, j in self._directed:
             self._parents[j].remove(i)
@@ -333,8 +345,3 @@ class LabelledMixedGraph:
         self._undirected.update({frozenset({i, j}): label for (i, j), label in self._bidirected.items()})
         self.remove_all_directed()
         self.remove_all_bidirected()
-
-
-
-
-

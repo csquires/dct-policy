@@ -55,7 +55,9 @@ def apply_clique_intervention(
         target_clique,
         dcg: LabelledMixedGraph,
         verbose: bool = False,
-        extra_interventions: bool = True
+        extra_interventions: bool = True,
+        check_edges = True,
+        dag = None
 ) -> (LabelledMixedGraph, LabelledMixedGraph, set):
     """
     Given a clique tree, "intervene" on the clique `target_clique`.
@@ -94,19 +96,60 @@ def apply_clique_intervention(
     # === ITERATIVELY ORIENT EDGES, CHECKING EACH EDGE UNTIL NO RULES CAN BE APPLIED
     while True:
         if verbose: print('========')
+        print(f"Wrongly inferred directed edges: {new_clique_graph.directed_keys - dcg.directed_keys}")
+        print(f"Wrongly inferred bidirected edges: {new_clique_graph.bidirected_keys - dcg.bidirected_keys}")
         for (c1, c2), label in current_unoriented_edges.items():
             directed_with_same_label = new_clique_graph.directed_edges_with_label(label)
+            bidirected_with_same_label = new_clique_graph.bidirected_edges_with_label(label)
+            c1_parents = {p for p in new_clique_graph.parents_of(c1) if p & c1 >= label and p & c2 == label}
+            c1_spouses = {s for s in new_clique_graph.spouses_of(c1) if s & c1 >= label and s & c2 == label}
             onto_c1 = new_clique_graph.onto_edges(c1)
             onto_c2 = new_clique_graph.onto_edges(c2)
 
-            if any(d[0] == c1 for d in directed_with_same_label):  # if C1 --S13--> C3 and C1 --S13-- C2, C1->C2
+            c3_ = next((c3 for c3 in c1_parents if new_clique_graph.has_directed(c3, c2)), None)
+            if c3_:
+                new_clique_graph.remove_edge(c1, c2)
+                new_clique_tree.remove_edge(c1, c2)
+                new_clique_tree.add_directed(c3_, c2, label)
+            elif any(new_clique_graph.has_bidirected((c3, c2)) for c3 in c1_parents):
+                new_clique_graph.to_bidirected(c1, c2)
+                new_clique_tree.to_bidirected(c1, c2)
+                if check_edges: print(f"(2) Has {c1}<->{c2}: {dcg.has_bidirected((c1, c2))}")
+                if not dcg.has_bidirected((c1, c2)):
+                    print(dag)
+                    print(new_clique_graph.bidirected_keys)
+                    print(new_clique_graph.directed_keys)
+                    print(c1_parents & new_clique_graph.spouses_of(c2))
+            elif any(new_clique_graph.has_directed(c3, c2) for c3 in c1_spouses):
                 new_clique_graph.to_directed(c1, c2)
                 new_clique_tree.to_directed(c1, c2)
-                if verbose: print(f"Directed {c1}->{c2} by equivalence")
-            elif any(d[0] == c2 for d in directed_with_same_label):  # if C2 --S12--> C3 and C1 --S13-- C2, C1<-C2
-                new_clique_tree.to_directed(c2, c1)
+                if check_edges: print(f"(4) Has {c1}->{c2}: {dcg.has_directed(c1, c2)}")
+                if not dcg.has_directed(c1, c2):
+                    print(new_clique_graph.bidirected_keys)
+                    print(new_clique_graph.directed_keys)
+                    print(c1_spouses & new_clique_graph.parents_of(c2))
+            elif any(new_clique_graph.has_bidirected((c3, c2)) for c3 in c1_spouses):
+                new_clique_graph.to_bidirected(c1, c2)
+                new_clique_tree.to_bidirected(c1, c2)
+                if check_edges: print(f"(5) Has {c1}<->{c2}: {dcg.has_bidirected((c1, c2))}")
+            elif any(new_clique_graph.has_directed(c2, c3) for c3 in c1_parents | c1_spouses):
                 new_clique_graph.to_directed(c2, c1)
-                if verbose: print(f"Directed {c2}->{c1} by equivalence")
+                new_clique_tree.to_directed(c2, c1)
+                if check_edges: print(f"(3)/(6) Has {c1}<-{c2}: {dcg.has_directed(c2, c1)}")
+                if not dcg.has_directed(c2, c1):
+                    print('------------')
+                    print(new_clique_graph.bidirected_keys)
+                    print(new_clique_graph.directed_keys)
+                    print((c1_parents | c1_spouses) & new_clique_graph.children_of(c2))
+
+            # if any(d[0] == c1 for d in directed_with_same_label):  # if C1 --S13--> C3 and C1 --S13-- C2, C1->C2
+            #     new_clique_graph.to_directed(c1, c2)
+            #     new_clique_tree.to_directed(c1, c2)
+            #     if verbose: print(f"Directed {c1}->{c2} by equivalence")
+            # elif any(d[0] == c2 for d in directed_with_same_label):  # if C2 --S12--> C3 and C1 --S13-- C2, C1<-C2
+            #     new_clique_tree.to_directed(c2, c1)
+            #     new_clique_graph.to_directed(c2, c1)
+            #     if verbose: print(f"Directed {c2}->{c1} by equivalence")
             elif any(incomparable(onto_edge, (c1, c2), clique_graph) for onto_edge in onto_c1):  # propagate C1 -> C2
                 new_clique_graph.to_directed(c1, c2)
                 new_clique_tree.to_directed(c1, c2)
@@ -209,7 +252,8 @@ def dct_policy(dag: DAG, verbose=False, check=True) -> set:
             clique_graph,
             central_clique,
             dcg,
-            verbose=verbose
+            verbose=verbose,
+            dag=dag
         )
 
         # RECORD THE NODES THAT WERE INTERVENED ON
@@ -227,10 +271,11 @@ def dct_policy(dag: DAG, verbose=False, check=True) -> set:
         current_clique_subtree = current_clique_subtree.induced_graph(remaining_cliques)
 
     cg = clique_graph.copy()
+    print(f'number undirected in cg: {cg.num_undirected}')
     cg.remove_all_undirected()
     cg.all_to_undirected()
     cg_nx = cg.to_nx()
-    print('connected', nx.is_connected(cg_nx))
+    # print('connected', nx.is_connected(cg_nx))
     if verbose: print(f"*** {len(regular_phase1)} regular intervened in Phase I")
     if check:
         if log_num_cliques*clique_size < len(regular_phase1):
