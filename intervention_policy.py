@@ -5,6 +5,69 @@ import networkx as nx
 from mixed_graph import LabelledMixedGraph
 from causaldag import UndirectedGraph, DAG
 import random
+import itertools as itr
+from collections import defaultdict
+
+
+def dcg2dct(dcg: LabelledMixedGraph):
+    # === get max cliques
+    max_cliques = dcg.nodes
+    overlap_to_edges = defaultdict(set)
+    for edge, label in dcg.directed.items():
+        overlap_to_edges[len(label)].add(edge)
+    for edge, label in dcg.bidirected.items():
+        overlap_to_edges[len(label)].add(edge)
+
+    clique_tree = nx.MultiDiGraph()
+    # greedily choose edges to create a directed clique tree
+    current_threshold = max(overlap_to_edges)
+    for _ in range(len(max_cliques)-1):
+        while current_threshold > 0:
+            candidate_edges = list(overlap_to_edges[current_threshold])
+            candidate_trees = [clique_tree.copy() for _ in candidate_edges]
+            for t, edge in zip(candidate_trees, candidate_edges):
+                c1, c2 = edge
+                if isinstance(edge, frozenset):
+                    t.add_edge(c1, c2)
+                    t.add_edge(c2, c1)
+                else:
+                    t.add_edge(c1, c2)
+
+            # only keep forests
+            candidate_trees = [t for t in candidate_trees if nx.is_forest(t.to_undirected())]
+
+            if not candidate_trees:
+                current_threshold -= 1
+                continue
+
+            # only keep if single source in each component
+            candidate_trees_no_collider = []
+            for t in candidate_trees:
+                components = [nx.subgraph(t, component) for component in nx.strongly_connected_components(t)]
+                components2parents = [set.union(*(set(t.predecessors(node)) - c.nodes() for node in c)) for c in components]
+                if all(len(parents) <= 1 for parents in components2parents):
+                    candidate_trees_no_collider.append(t)
+            if not candidate_trees_no_collider:
+                raise Exception("Can't find a collider-free tree")
+
+            # choose clique tree without new -><->, if possible
+            preferred_candidate_trees = []
+            for t in candidate_trees_no_collider:
+                new_edge = set(t.edges()) - set(clique_tree.edges())
+                c1, c2 = list(new_edge)[0]
+                if not t.has_edge(c2, c1):
+                    preferred_candidate_trees.append(t)
+                else:
+                    if not set(t.predecessors(c1)) - {c2} and not set(t.predecessors(c2)) - {c1}:
+                        preferred_candidate_trees.append(t)
+
+            clique_tree = preferred_candidate_trees[0] if preferred_candidate_trees else candidate_trees_no_collider[0]
+            break
+
+    labels = {(c1, c2, 0): c1 & c2 for c1, c2 in clique_tree.edges()}
+    nx.set_edge_attributes(clique_tree, labels, name='label')
+
+    return LabelledMixedGraph.from_nx(clique_tree)
 
 
 def incomparable(edge1, edge2, clique_graph):
@@ -56,7 +119,6 @@ def apply_clique_intervention(
         dcg: LabelledMixedGraph,
         verbose: bool = False,
         extra_interventions: bool = True,
-        check_edges = True,
         dag = None
 ) -> (LabelledMixedGraph, LabelledMixedGraph, set):
     """
@@ -96,25 +158,33 @@ def apply_clique_intervention(
     # === ITERATIVELY ORIENT EDGES, CHECKING EACH EDGE UNTIL NO RULES CAN BE APPLIED
     while True:
         if verbose: print('========')
-        print(f"Wrongly inferred directed edges: {new_clique_graph.directed_keys - dcg.directed_keys}")
-        print(f"Wrongly inferred bidirected edges: {new_clique_graph.bidirected_keys - dcg.bidirected_keys}")
+        wrongly_inferred_bidirected = new_clique_graph.bidirected_keys - dcg.bidirected_keys
+        wrongly_inferred_directed = new_clique_graph.directed_keys - dcg.directed_keys
+        if wrongly_inferred_directed:
+            print(f"Wrongly inferred directed edges: {new_clique_graph.directed_keys - dcg.directed_keys}")
+        if wrongly_inferred_bidirected:
+            print(f"Wrongly inferred bidirected edges: {new_clique_graph.bidirected_keys - dcg.bidirected_keys}")
         for (c1, c2), label in current_unoriented_edges.items():
             directed_with_same_label = new_clique_graph.directed_edges_with_label(label)
-            bidirected_with_same_label = new_clique_graph.bidirected_edges_with_label(label)
             c1_parents = {p for p in new_clique_graph.parents_of(c1) if p & c1 >= label and p & c2 == label}
             c1_spouses = {s for s in new_clique_graph.spouses_of(c1) if s & c1 >= label and s & c2 == label}
             onto_c1 = new_clique_graph.onto_edges(c1)
             onto_c2 = new_clique_graph.onto_edges(c2)
 
             c3_ = next((c3 for c3 in c1_parents if new_clique_graph.has_directed(c3, c2)), None)
-            if c3_:
+            if any(d[0] == c1 for d in directed_with_same_label):
+                new_clique_graph.to_directed(c1, c2)
+                new_clique_tree.to_directed(c1, c2)
+            elif any(d[0] == c2 for d in directed_with_same_label):
+                new_clique_graph.to_directed(c2, c1)
+                new_clique_tree.to_directed(c2, c1)
+            elif c3_:
                 new_clique_graph.remove_edge(c1, c2)
                 new_clique_tree.remove_edge(c1, c2)
                 new_clique_tree.add_directed(c3_, c2, label)
             elif any(new_clique_graph.has_bidirected((c3, c2)) for c3 in c1_parents):
                 new_clique_graph.to_bidirected(c1, c2)
                 new_clique_tree.to_bidirected(c1, c2)
-                if check_edges: print(f"(2) Has {c1}<->{c2}: {dcg.has_bidirected((c1, c2))}")
                 if not dcg.has_bidirected((c1, c2)):
                     print(dag)
                     print(new_clique_graph.bidirected_keys)
@@ -123,7 +193,6 @@ def apply_clique_intervention(
             elif any(new_clique_graph.has_directed(c3, c2) for c3 in c1_spouses):
                 new_clique_graph.to_directed(c1, c2)
                 new_clique_tree.to_directed(c1, c2)
-                if check_edges: print(f"(4) Has {c1}->{c2}: {dcg.has_directed(c1, c2)}")
                 if not dcg.has_directed(c1, c2):
                     print(new_clique_graph.bidirected_keys)
                     print(new_clique_graph.directed_keys)
@@ -131,11 +200,9 @@ def apply_clique_intervention(
             elif any(new_clique_graph.has_bidirected((c3, c2)) for c3 in c1_spouses):
                 new_clique_graph.to_bidirected(c1, c2)
                 new_clique_tree.to_bidirected(c1, c2)
-                if check_edges: print(f"(5) Has {c1}<->{c2}: {dcg.has_bidirected((c1, c2))}")
             elif any(new_clique_graph.has_directed(c2, c3) for c3 in c1_parents | c1_spouses):
                 new_clique_graph.to_directed(c2, c1)
                 new_clique_tree.to_directed(c2, c1)
-                if check_edges: print(f"(3)/(6) Has {c1}<-{c2}: {dcg.has_directed(c2, c1)}")
                 if not dcg.has_directed(c2, c1):
                     print('------------')
                     print(new_clique_graph.bidirected_keys)
@@ -270,6 +337,7 @@ def dct_policy(dag: DAG, verbose=False, check=True) -> set:
         if verbose: print(f"Remaining cliques: {remaining_cliques}")
         current_clique_subtree = current_clique_subtree.induced_graph(remaining_cliques)
 
+    new_dct = dcg2dct(clique_graph)
     cg = clique_graph.copy()
     print(f'number undirected in cg: {cg.num_undirected}')
     cg.remove_all_undirected()
@@ -309,8 +377,8 @@ def dct_policy(dag: DAG, verbose=False, check=True) -> set:
     #     print(clique_graph.num_undirected)
 
     # print(full_clique_tree.directed_keys)
-    nx_clique_tree = full_clique_tree.to_nx()
-    clique2ancestors = {c: nx.ancestors(nx_clique_tree, c) for c in full_clique_tree.nodes}
+    nx_clique_tree = new_dct.to_nx()
+    clique2ancestors = {c: nx.ancestors(nx_clique_tree, c) for c in new_dct.nodes}
     sorted_cliques = sorted(clique2ancestors.items(), key=lambda x: len(x[1]))
     # print(sorted_cliques)
 

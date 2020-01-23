@@ -91,8 +91,8 @@ if __name__ == '__main__':
     print(np.mean(results_random))
     print(np.mean(results_dct))
 
-    ix = 90
-    ar_dct.specific_dag(ix, verbose=False)
+    ix = 14
+    ar_dct.specific_dag(ix, verbose=True)
     ar_random.specific_dag(ix)
     d = dl.get_dags()[ix]
     dct = d.directed_clique_tree()
