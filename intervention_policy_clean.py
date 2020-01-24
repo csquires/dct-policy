@@ -187,14 +187,17 @@ def apply_clique_intervention(
             #     new_clique_tree.to_directed(c2, c1)
             #     if verbose: print(f"Directed {c2}->{c1} by equivalence")
             # === COMPLEX RULES: DEAL WITH INCLUSION OF CURRENT LABEL IN A LARGER LABEL
-            elif c3_:
-                removable_edges.append((c1, c2))
-                new_clique_graph.to_directed(c1, c2)
-                new_clique_tree.to_directed(c1, c2)
-                # new_clique_graph.remove_edge(c1, c2)
-                # new_clique_tree.remove_edge(c1, c2)
-                # new_clique_tree.add_directed(c3_, c2, label)
-                if verbose: print(f"Temporarily directed {c1}->{c2}")
+            # elif c3_:
+            #     removable_edges.append((c1, c2))
+            #     new_clique_graph.to_directed(c1, c2)
+            #     new_clique_tree.to_directed(c1, c2)
+            #     # new_clique_graph.remove_edge(c1, c2)
+            #     # new_clique_tree.remove_edge(c1, c2)
+            #     # new_clique_tree.add_directed(c3_, c2, label)
+            #     if verbose: print(f"Temporarily directed {c1}->{c2}")
+            elif any(d[1] == c1 for d in directed_with_same_label):
+                new_clique_graph.remove_edge(c1, c2)
+                if verbose: print(f"Removing {c1}-{c2} since it's redundant")
             elif any(new_clique_graph.has_bidirected((c3, c2)) for c3 in c1_parents):
                 new_clique_graph.to_bidirected(c1, c2)
                 new_clique_tree.to_bidirected(c1, c2)
