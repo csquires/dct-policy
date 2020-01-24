@@ -308,6 +308,10 @@ class LabelledMixedGraph:
             raise KeyError("i-j is not an edge in this graph")
         return label
 
+    def remove_edges(self, edges, ignore_error=True):
+        for edge in edges:
+            self.remove_edge(*edge, ignore_error=ignore_error)
+
     def remove_all_directed(self):
         for i, j in self._directed:
             self._parents[j].remove(i)
