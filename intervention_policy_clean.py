@@ -170,7 +170,7 @@ def apply_clique_intervention(
         forward_edges = {(i, j): label for (i, j), label in current_unoriented_edges.items()}
         backward_edges = {(j, i): label for (i, j), label in forward_edges.items()}
         for (c1, c2), label in {**forward_edges, **backward_edges}.items():
-            directed_with_same_label = new_clique_graph.directed_edges_with_label(label)
+            directed_with_same_label = new_clique_graph.directed_edges_with_label(label) - frozenset({(c2, c1)})
             c1_parents = {p for p in new_clique_graph.parents_of(c1) if p & c1 >= label and p & c2 == label}
             c1_spouses = {s for s in new_clique_graph.spouses_of(c1) if s & c1 >= label and s & c2 == label}
             onto_c1 = new_clique_graph.onto_edges(c1)
@@ -197,7 +197,8 @@ def apply_clique_intervention(
             #     if verbose: print(f"Temporarily directed {c1}->{c2}")
             elif any(d[1] == c1 for d in directed_with_same_label):
                 new_clique_graph.remove_edge(c1, c2)
-                if verbose: print(f"Removing {c1}-{c2} since it's redundant")
+                c3 = next(c3 for c3, c1_ in directed_with_same_label if c1 == c1_)
+                if verbose: print(f"Removing {c1}-{c2} since it's redundant ({c3}->{c1})")
             elif any(new_clique_graph.has_bidirected((c3, c2)) for c3 in c1_parents):
                 new_clique_graph.to_bidirected(c1, c2)
                 new_clique_tree.to_bidirected(c1, c2)
@@ -325,6 +326,7 @@ def dct_policy(dag: DAG, verbose=False, check=True) -> set:
         print(clique_graph.undirected_keys)
         if verbose: print(f"Remaining cliques: {remaining_cliques}")
         current_clique_subtree = current_clique_subtree.induced_graph(remaining_cliques)
+        print(current_clique_subtree.undirected_keys)
 
     new_dct = dcg2dct(clique_graph)
     cg = clique_graph.copy()

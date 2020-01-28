@@ -61,38 +61,42 @@ if __name__ == '__main__':
     import random
     from chordal_utils import get_directed_clique_graph
 
-    nnodes = 18
+    # nnodes = 18
+    nnodes = 10
     random.seed(81248)
     dl = DagLoader(nnodes, 1000, DagSampler.TREE_PLUS, dict(e_min=2, e_max=5))
     dl.get_dags(overwrite=True)
     ar_random = AlgRunner('random', dl)
     ar_dct = AlgRunner('dct', dl)
-    results_random = ar_random.get_alg_results(overwrite=True)
-    results_dct = ar_dct.get_alg_results(overwrite=True)
-    clique_sizes = dl.max_clique_sizes()
-    num_cliques = dl.num_cliques()
-    optimal_ivs = dl.get_verification_optimal_ivs()
-    bound = np.ceil(np.log2(num_cliques)) * clique_sizes + 3*optimal_ivs
 
-    print("Number of cliques")
-    print(num_cliques)
+    RUN_ALL = False
+    if RUN_ALL:
+        results_random = ar_random.get_alg_results(overwrite=True)
+        results_dct = ar_dct.get_alg_results(overwrite=True)
+        clique_sizes = dl.max_clique_sizes()
+        num_cliques = dl.num_cliques()
+        optimal_ivs = dl.get_verification_optimal_ivs()
+        bound = np.ceil(np.log2(num_cliques)) * clique_sizes + 3*optimal_ivs
 
-    print("Clique sizes")
-    print(clique_sizes)
+        print("Number of cliques")
+        print(num_cliques)
 
-    print("Verification optimal")
-    print(optimal_ivs)
+        print("Clique sizes")
+        print(clique_sizes)
 
-    print("Bound")
-    print(bound)
+        print("Verification optimal")
+        print(optimal_ivs)
 
-    print(np.where(bound < nnodes))
-    above_bound = results_dct > bound
-    print(np.where(above_bound))
-    print(np.mean(results_random))
-    print(np.mean(results_dct))
+        print("Bound")
+        print(bound)
 
-    ix = 111
+        print(np.where(bound < nnodes))
+        above_bound = results_dct > bound
+        print(np.where(above_bound))
+        print(np.mean(results_random))
+        print(np.mean(results_dct))
+
+    ix = 66
     ar_dct.specific_dag(ix, verbose=True)
     # ar_random.specific_dag(ix)
     d = dl.get_dags()[ix]
