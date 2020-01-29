@@ -4,17 +4,19 @@ from typing import Union
 
 
 class LabelledMixedGraph:
-    def __init__(self, nodes=set(), directed=dict(), undirected=dict(), bidirected=dict()):
+    def __init__(self, nodes=set(), directed=dict(), undirected=dict(), bidirected=dict(), semidirected=dict()):
         self._nodes = set(nodes)
         self._directed = {(i, j): label for (i, j), label in directed.items()}
         self._bidirected = {frozenset({i, j}): label for (i, j), label in bidirected.items()}
         self._undirected = {frozenset({i, j}): label for (i, j), label in undirected.items()}
+        self._semidirected = {(i, j): label for (i, j), label in semidirected.items()}
 
         self._neighbors = defaultdict(set)
         self._spouses = defaultdict(set)
         self._parents = defaultdict(set)
         self._children = defaultdict(set)
-        self._adjacent = defaultdict(set)
+        self._semiparents = defaultdict(set)
+        self._semichildren = defaultdict(set)
 
         for i, j in self._directed.keys():
             self._children[i].add(j)
@@ -31,9 +33,11 @@ class LabelledMixedGraph:
             self._neighbors[j].add(i)
             self._nodes.add(i)
             self._nodes.add(j)
-        for node in self._nodes:
-            self._adjacent[node] = self._children[node] | self._parents[node] | self._spouses[node] | self._neighbors[
-                node]
+        for i, j in self._semidirected.keys():
+            self._semichildren[i].add(j)
+            self._parents[j].add(i)
+            self._nodes.add(i)
+            self._nodes.add(j)
 
     # === BUILT-INS
     @property
@@ -53,7 +57,8 @@ class LabelledMixedGraph:
             nodes=self._nodes,
             directed=self._directed,
             bidirected=self._bidirected,
-            undirected=self._undirected
+            undirected=self._undirected,
+            semidirected=self._semidirected
         )
 
     # === PROPERTIES
@@ -74,6 +79,10 @@ class LabelledMixedGraph:
         return dict(self._bidirected)
 
     @property
+    def semidirected(self):
+        return dict(self._semidirected)
+
+    @property
     def directed_keys(self):
         return set(self._directed.keys())
 
@@ -84,6 +93,10 @@ class LabelledMixedGraph:
     @property
     def undirected_keys(self):
         return set(self._undirected.keys())
+
+    @property
+    def semidirected_keys(self):
+        return set(self._semidirected.keys())
 
     @property
     def num_directed(self):
@@ -98,8 +111,12 @@ class LabelledMixedGraph:
         return len(self._bidirected)
 
     @property
+    def num_semidirected(self):
+        return len(self._semidirected)
+
+    @property
     def num_edges(self):
-        return self.num_bidirected + self.num_directed + self.num_undirected
+        return self.num_bidirected + self.num_directed + self.num_undirected + self.num_semidirected
 
     # === CONVERTERS
     @classmethod
@@ -143,13 +160,15 @@ class LabelledMixedGraph:
             directed={(i, j): val for (i, j), val in self._directed.items() if i in nodes and j in nodes},
             bidirected={(i, j): val for (i, j), val in self._bidirected.items() if i in nodes and j in nodes},
             undirected={(i, j): val for (i, j), val in self._undirected.items() if i in nodes and j in nodes},
+            semidirected={(i, j): val for (i, j), val in self._semidirected.items() if i in nodes and j in nodes}
         )
 
-    def to_undirected(self):
+    def undirected_copy(self):
         edges = {
             **self._undirected,
             **self._bidirected,
-            **{frozenset({i, j}): label for (i, j), label in self._directed.items()}
+            **{frozenset({i, j}): label for (i, j), label in self._directed.items()},
+            **{frozenset({i, j}): label for (i, j), label in self._semidirected.items()}
         }
         return LabelledMixedGraph(nodes=self._nodes, undirected=edges)
 
@@ -163,21 +182,38 @@ class LabelledMixedGraph:
     def has_undirected(self, edge):
         return frozenset({*edge}) in self._undirected
 
+    def has_semidirected(self, i, j):
+        return (i, j) in self._semidirected
+
     def has_any_edge(self, edge):
-        return self.has_bidirected(*edge) or self.has_bidirected(edge) or self.has_undirected(edge)
+        i, j = edge
+        return self.has_directed(i, j) or self.has_directed(j, i) or self.has_bidirected(edge) \
+            or self.has_undirected(edge) or self.has_semidirected(i, j) or self.has_semidirected(j, i)
 
     # === NODE-WISE SETS
     def indegree_of(self, node):
+        """Return the number of parents of a node"""
         return len(self._parents[node])
 
     def outdegree_of(self, node):
+        """Return the number of children of a node"""
         return len(self._children[node])
 
     def spouse_degree_of(self, node):
+        """Return the number of spouses of a node"""
         return len(self._spouses[node])
 
     def neighbor_degree_of(self, node):
+        """Return the number of neighbors of a node"""
         return len(self._neighbors[node])
+
+    def semi_indegree_of(self, node):
+        """Return the number of semi-parents of a node"""
+        return len(self._parents[node])
+
+    def semi_outdegree_of(self, node):
+        """Return the number of semi-children of a node"""
+        return len(self._children[node])
 
     def neighbors_of(self, node):
         return set(self._neighbors[node])
@@ -191,13 +227,21 @@ class LabelledMixedGraph:
     def parents_of(self, node):
         return set(self._parents[node])
 
+    def semichildren_of(self, node):
+        return set(self._semichildren[node])
+
+    def semiparents_of(self, node):
+        return set(self._semiparents[node])
+
     def adjacent_to(self, node):
-        return set(self._adjacent[node])
+        return self.parents_of(node) | self.children_of(node) | self.spouses_of(node) | self.neighbors_of(node) \
+            | self.semiparents_of(node) | self.semichildren_of(node)
 
     def onto_edges(self, node):
         directed_onto = {(p, node): self._directed[(p, node)] for p in self._parents[node]}
         bidirected_onto = {(s, node): self._bidirected[frozenset({s, node})] for s in self._spouses[node]}
-        return {**directed_onto, **bidirected_onto}
+        semi_directed_onto = {(p, node): self._semidirected[(p, node)] for p in self._semiparents[node]}
+        return {**directed_onto, **bidirected_onto, **semi_directed_onto}
 
     # === EDGE FUNCTIONALS
     def get_label(self, edge, ignore_error=True):
@@ -209,6 +253,10 @@ class LabelledMixedGraph:
             label = self._undirected.get(frozenset({*edge}))
             if label: return label
             label = self._bidirected[frozenset({*edge})]
+            if label: return label
+            label = self._semidirected.get(edge)
+            if label: return label
+            label = self._semidirected.get(tuple(reversed(edge)))
             if label: return label
         except KeyError as e:
             if ignore_error:
@@ -225,6 +273,9 @@ class LabelledMixedGraph:
     def bidirected_edges_with_label(self, label):
         return {edge for edge, l in self._bidirected.items() if l == label}
 
+    def semidirected_edges_with_label(self, label):
+        return {edge for edge, l in self._semidirected.items() if l == label}
+
     # === ADDERS
     def add_directed(self, i, j, label):
         self._directed[(i, j)] = label
@@ -235,6 +286,16 @@ class LabelledMixedGraph:
         self._bidirected[frozenset({i, j})] = label
         self._spouses[j].add(i)
         self._spouses[i].add(j)
+
+    def add_undirected(self, i, j, label):
+        self._undirected[frozenset({i, j})] = label
+        self._neighbors[j].add(i)
+        self._neighbors[i].add(j)
+
+    def add_semidirected(self, i, j, label):
+        self._semidirected[(i, j)] = label
+        self._semiparents[j].add(i)
+        self._semichildren[i].add(j)
 
     # === REMOVERS
     def remove_node(self, i):
@@ -256,13 +317,18 @@ class LabelledMixedGraph:
             self._neighbors[nbr].remove(i)
         del self._neighbors[i]
 
-        for adj in self._adjacent[i]:
-            self._adjacent[adj].remove(i)
-        del self._adjacent[i]
+        for sp in self._semiparents[i]:
+            self._semichildren[sp].remove(i)
+        del self._semiparents[i]
+
+        for sc in self._semichildren[i]:
+            self._semiparents[sc].remove(i)
+        del self._semichildren[i]
 
         self._directed = {(j, k): val for (j, k), val in self._directed.items() if i != j and i != k}
-        self._bidirected = {(j, k): val for (j, k), val in self._bidirected.items() if i != j and i != k}
-        self._undirected = {(j, k): val for (j, k), val in self._undirected.items() if i != j and i != k}
+        self._bidirected = {frozenset({j, k}): val for (j, k), val in self._bidirected.items() if i != j and i != k}
+        self._undirected = {frozenset({j, k}): val for (j, k), val in self._undirected.items() if i != j and i != k}
+        self._semidirected = {(j, k): val for (j, k), val in self._semidirected.items() if i != j and i != k}
 
     def remove_directed(self, i, j, ignore_error=True):
         try:
@@ -300,13 +366,34 @@ class LabelledMixedGraph:
             else:
                 raise e
 
+    def remove_semidirected(self, i, j, ignore_error=True):
+        try:
+            label = self._semidirected.pop((i, j))
+            self._semichildren[j].remove(i)
+            self._semiparents[i].remove(j)
+            return label
+        except KeyError as e:
+            if ignore_error:
+                pass
+            else:
+                raise e
+
     def remove_edge(self, i, j, ignore_error=True):
         label = self.remove_directed(i, j)
-        label = self.remove_bidirected(i, j) if not label else label
-        label = self.remove_undirected(i, j) if not label else label
+        if label: return label
+        label = self.remove_directed(j, i)
+        if label: return label
+        label = self.remove_bidirected(i, j)
+        if label: return label
+        label = self.remove_undirected(i, j)
+        if label: return label
+        label = self.remove_semidirected(i, j)
+        if label: return label
+        label = self.remove_semidirected(j, i)
+        if label: return label
+
         if not label and not ignore_error:
             raise KeyError("i-j is not an edge in this graph")
-        return label
 
     def remove_edges(self, edges, ignore_error=True):
         for edge in edges:
@@ -330,22 +417,55 @@ class LabelledMixedGraph:
             self._neighbors[j].remove(i)
         self._undirected = defaultdict(set)
 
+    def remove_all_semidirected(self):
+        for i, j in self._semidirected:
+            self._semiparents[j].remove(i)
+            self._semichildren[i].remove(j)
+        self._semidirected = defaultdict(set)
+
     # === MUTATORS
     def to_directed(self, i, j, check_exists=True):
+        """Replace the edge between i and j, if any exists, with i->j"""
         label = self.remove_bidirected(i, j)
         label = self.remove_undirected(i, j) if label is None else label
+        label = self.remove_semidirected(i, j) if label is None else label
+        label = self.remove_semidirected(j, i) if label is None else label
         if label or not check_exists:
             self.add_directed(i, j, label)
 
     def to_bidirected(self, i, j, check_exists=True):
+        """Replace the edge between i and j, if any exists, with i<->j"""
         label = self.remove_undirected(i, j)
         label = self.remove_directed(i, j) if label is None else label
         label = self.remove_directed(j, i) if label is None else label
+        label = self.remove_semidirected(i, j) if label is None else label
+        label = self.remove_semidirected(j, i) if label is None else label
         if label or not check_exists:
             self.add_bidirected(i, j, label)
+
+    def to_undirected(self, i, j, check_exists=True):
+        """Replace the edge between i and j, if any exists, with i-j"""
+        label = self.remove_bidirected(i, j)
+        label = self.remove_directed(i, j) if label is None else label
+        label = self.remove_directed(j, i) if label is None else label
+        label = self.remove_semidirected(i, j) if label is None else label
+        label = self.remove_semidirected(j, i) if label is None else label
+        if label or not check_exists:
+            self.add_undirected(i, j, label)
+
+    def to_semidirected(self, i, j, check_exists=True):
+        """Replace the edge between i and j, if any exists, with i o-> j"""
+        label = self.remove_undirected(i, j)
+        label = self.remove_bidirected(i, j) if label is None else label
+        label = self.remove_directed(i, j) if label is None else label
+        label = self.remove_directed(j, i) if label is None else label
+        if label or not check_exists:
+            self.add_undirected(i, j, label)
 
     def all_to_undirected(self):
         self._undirected.update({frozenset({i, j}): label for (i, j), label in self._directed.items()})
         self._undirected.update({frozenset({i, j}): label for (i, j), label in self._bidirected.items()})
+        self._undirected.update({frozenset({i, j}): label for (i, j), label in self._semidirected.items()})
         self.remove_all_directed()
         self.remove_all_bidirected()
+        self.remove_all_semidirected()
