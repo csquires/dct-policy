@@ -187,18 +187,20 @@ def apply_clique_intervention(
             #     new_clique_tree.to_directed(c2, c1)
             #     if verbose: print(f"Directed {c2}->{c1} by equivalence")
             # === COMPLEX RULES: DEAL WITH INCLUSION OF CURRENT LABEL IN A LARGER LABEL
-            # elif c3_:
-            #     removable_edges.append((c1, c2))
-            #     new_clique_graph.to_directed(c1, c2)
-            #     new_clique_tree.to_directed(c1, c2)
-            #     # new_clique_graph.remove_edge(c1, c2)
-            #     # new_clique_tree.remove_edge(c1, c2)
-            #     # new_clique_tree.add_directed(c3_, c2, label)
-            #     if verbose: print(f"Temporarily directed {c1}->{c2}")
-            elif any(d[1] == c1 for d in directed_with_same_label):
-                new_clique_graph.remove_edge(c1, c2)
-                c3 = next(c3 for c3, c1_ in directed_with_same_label if c1 == c1_)
-                if verbose: print(f"Removing {c1}-{c2} since it's redundant ({c3}->{c1})")
+            elif c3_:
+                removable_edges.append((c1, c2))
+                new_clique_graph.to_directed(c1, c2)
+                new_clique_tree.to_directed(c1, c2)
+                # new_clique_graph.remove_edge(c1, c2)
+                # new_clique_tree.remove_edge(c1, c2)
+                # new_clique_tree.add_directed(c3_, c2, label)
+                if verbose: print(f"Temporarily directed {c1}->{c2}")
+            # elif any(d[1] == c1 for d in directed_with_same_label):
+            #     new_clique_graph.remove_edge(c1, c2)
+            #     new_clique_tree.remove_edge(c1, c2)
+            #     c3 = next(c3 for c3, c1_ in directed_with_same_label if c1 == c1_)
+            #     new_clique_tree.add_directed(c3, c2)
+            #     if verbose: print(f"Removing {c1}-{c2} since it's redundant ({c3}->{c1})")
             elif any(new_clique_graph.has_bidirected((c3, c2)) for c3 in c1_parents):
                 new_clique_graph.to_bidirected(c1, c2)
                 new_clique_tree.to_bidirected(c1, c2)
@@ -243,17 +245,21 @@ def apply_clique_intervention(
                 for (c1, c2), label in current_unoriented_edges.items():
                     upstream_c1 = new_clique_graph.parents_of(c1) | new_clique_graph.spouses_of(c1)
                     upstream_c2 = new_clique_graph.parents_of(c2) | new_clique_graph.spouses_of(c2)
-                    c3 = next((c3 for c3 in upstream_c1 & upstream_c2 if c3 & c1 == c3 & c2 and c3 & c1 < label), None)
+                    c3 = next((c3 for c3 in upstream_c1 & upstream_c2 if (c3 & c1) == (c3 & c2)), None)
 
-                    if c3 is not None:  # if c1 and c2 have a common parent/spouse with a smaller intersection, then spend interventions
+                    if c3 is not None and (c3 & c1) < label:  # if c1 and c2 have a common parent/spouse with a smaller intersection, then spend interventions
                         if verbose: print(f"Intervening on extra nodes {c1 & c2} to orient {c1}-{c2} with common_parent = {c3}")
                         extra_nodes.update(c1 & c2)
                         add_edge_direction(new_clique_graph, new_clique_tree, c1, c2, dcg, verbose=verbose)
+                    elif c3 is not None and (c3 & c1) == label:
+                        new_clique_graph.to_bidirected(c1, c2)
+                        new_clique_tree.to_bidirected(c1, c2)
+                        if verbose: print(f"Directed {c1}<->{c2} by equivalence")
                 if current_unoriented_edges == new_unoriented_edges:
                     break
         current_unoriented_edges = new_unoriented_edges
 
-        new_clique_graph.remove_edges(removable_edges)
+        # new_clique_graph.remove_edges(removable_edges)
     return new_clique_tree, new_clique_graph, extra_nodes
 
 
@@ -321,12 +327,12 @@ def dct_policy(dag: DAG, verbose=False, check=True) -> set:
         # TAKE SUBTREE
         remaining_cliques = {
             clique for clique in full_clique_tree._nodes
-            if clique_graph.neighbor_degree_of(clique) != 0
+            if full_clique_tree.neighbor_degree_of(clique) != 0
         }
-        print(clique_graph.undirected_keys)
+        # print(clique_graph.undirected_keys)
         if verbose: print(f"Remaining cliques: {remaining_cliques}")
         current_clique_subtree = current_clique_subtree.induced_graph(remaining_cliques)
-        print(current_clique_subtree.undirected_keys)
+        # print(current_clique_subtree.undirected_keys)
 
     new_dct = dcg2dct(clique_graph)
     cg = clique_graph.copy()
