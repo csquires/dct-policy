@@ -70,6 +70,30 @@ def dcg2dct(dcg: LabelledMixedGraph):
     return LabelledMixedGraph.from_nx(clique_tree)
 
 
+def cg2ct(cg: LabelledMixedGraph):
+    max_cliques = cg.nodes
+    overlap_to_edges = defaultdict(set)
+    for edge, label in cg.undirected.items():
+        overlap_to_edges[len(label)].add(edge)
+
+    clique_tree = nx.Graph()
+    current_threshold = max(overlap_to_edges)
+    for _ in range(len(max_cliques)-1):
+        while current_threshold > 0:
+            candidate_edges = list(overlap_to_edges[current_threshold] - {frozenset({i, j}) for i, j in clique_tree.edges})
+            candidate_trees = [clique_tree.copy() for _ in candidate_edges]
+            for t, edge in zip(candidate_trees, candidate_edges):
+                t.add_edge(*edge)
+            candidate_trees = [t for t in candidate_trees if nx.is_forest(t.to_undirected())]
+            if not candidate_trees:
+                current_threshold -= 1
+                continue
+            clique_tree = candidate_trees[0]
+            break
+
+    return clique_tree
+
+
 def incomparable(edge1, edge2, clique_graph):
     """
     Check if `edge1` and `edge2` have incomparable labels in the given clique graph.
@@ -109,6 +133,107 @@ def add_edge_direction(
         clique_graph.to_bidirected(c2, c1)
         clique_tree.to_bidirected(c2, c1)
         if verbose: print(f"Clique intervention: directed {c1}<->{c2}")
+
+
+def apply_clique_intervention2(
+        clique_tree: LabelledMixedGraph,
+        induced_chordal,
+        clique_graph: LabelledMixedGraph,
+        target_clique,
+        dcg: LabelledMixedGraph,
+        verbose: bool = False,
+        extra_interventions: bool = True,
+        dag = None,
+        check=True
+) -> (LabelledMixedGraph, LabelledMixedGraph, set):
+    """
+    Given a clique tree, "intervene" on the clique `target_clique`.
+
+    Parameters
+    ----------
+    clique_tree
+    induced_chordal
+    clique_graph:
+
+    target_clique:
+        Clique on which the clique intervention is performed.
+    dcg:
+        The true directed clique graph. Used to determine edge directions that result from the clique intervention.
+    verbose
+    extra_interventions:
+        If True, then perform extra interventions as needed to ensure that only one undirected subtree remains.
+
+    Returns
+    -------
+    (new_clique_tree, new_clique_graph, extra_nodes)
+        new_clique_tree: clique tree with edge directions added and propagated
+        new_clique_graph: clique graph with edge directions added and propagated
+        extra_nodes: nodes intervened on in order to get all clique tree edge directions
+    """
+    new_clique_tree = clique_tree.copy()
+    new_clique_graph = clique_graph.copy()
+
+    # === ADD DIRECTIONS TO CLIQUE GRAPH AND CLIQUE TREE
+    for nbr_clique in clique_graph.neighbors_of(target_clique):
+        add_edge_direction(new_clique_graph, new_clique_tree, nbr_clique, target_clique, dcg, verbose=verbose)
+
+    current_unoriented_edges = new_clique_graph.undirected
+    extra_nodes = set()
+
+    # === ITERATIVELY ORIENT EDGES, CHECKING EACH EDGE UNTIL NO RULES CAN BE APPLIED
+    while True:
+        if verbose: print('========')
+        wrongly_inferred_bidirected = new_clique_graph.bidirected_keys - dcg.bidirected_keys
+        wrongly_inferred_directed = new_clique_graph.directed_keys - dcg.directed_keys
+        if clique_graph.num_edges != dcg.num_edges:
+            raise ValueError("Screwed up the clique graph")
+        if check and wrongly_inferred_directed:
+            print(f"Wrongly inferred directed edges: {new_clique_graph.directed_keys - dcg.directed_keys}")
+        if check and wrongly_inferred_bidirected:
+            print(f"Wrongly inferred bidirected edges: {new_clique_graph.bidirected_keys - dcg.bidirected_keys}")
+
+        forward_edges = {(i, j): label for (i, j), label in current_unoriented_edges.items()}
+        backward_edges = {(j, i): label for (i, j), label in forward_edges.items()}
+        for (c1, c2), label in itr.chain(forward_edges.items(), backward_edges.items()):
+            onto_c1 = new_clique_graph.onto_edges(c1)
+
+            if any((c3 & c2) == label for c3 in new_clique_graph.children_of(c2)):
+                new_clique_graph.to_directed(c2, c1)
+                if verbose: print(f"Directed {c2}->{c1} by label equivalence")
+            elif any(incomparable(onto_edge, (c1, c2), clique_graph) for onto_edge in onto_c1):  # propagate C1 -> C2
+                new_clique_graph.to_directed(c1, c2)
+                if verbose: print(f"Directed {c1}->{c2} by propagation")
+            elif any((c3 & c2) == label for c3 in new_clique_graph.onto_nodes(c2)):
+                if not new_clique_graph.has_directed(c1, c2) and not new_clique_graph.has_bidirected((c1, c2)):
+                    new_clique_graph.to_semidirected(c1, c2)
+                    if verbose: print(f"Semi-directed {c1}o->{c2} by label equivalence")
+
+        new_unoriented_edges = new_clique_graph.undirected
+        if current_unoriented_edges == new_unoriented_edges:
+            if not extra_interventions:
+                break
+            else:
+                # === COMPLEX RULE: DEAL WITH CURRENT LABEL INCLUDING OTHER LABELS
+                for (c1, c2), label in current_unoriented_edges.items():
+                    c3 = next(
+                        (c3 for c3 in new_clique_graph.onto_nodes(c1) & new_clique_graph.onto_nodes(c2) if (c3 & c1) == (c3 & c2))
+                        , None
+                    )
+
+                    if c3 is not None and (c3 & c1) < label:  # if c1 and c2 have a common parent/spouse with a smaller intersection, then spend interventions
+                        if verbose: print(f"Intervening on extra nodes {c1 & c2} to orient {c1}-{c2} with common_parent = {c3}")
+                        extra_nodes.update(c1 & c2)
+                        add_edge_direction(new_clique_graph, new_clique_tree, c1, c2, dcg, verbose=verbose)
+                    elif c3 is not None and (c3 & c1) == label:
+                        new_clique_graph.to_bidirected(c1, c2)
+                        new_clique_tree.to_bidirected(c1, c2)
+                        if verbose: print(f"Directed {c1}<->{c2} by equivalence")
+                if current_unoriented_edges == new_unoriented_edges:
+                    break
+        current_unoriented_edges = new_unoriented_edges
+
+        # new_clique_graph.remove_edges(removable_edges)
+    return new_clique_tree, new_clique_graph, extra_nodes
 
 
 def apply_clique_intervention(
@@ -287,7 +412,7 @@ def dct_policy(dag: DAG, verbose=False, check=True) -> set:
 
     ug = UndirectedGraph(nodes=dag.nodes, edges=dag.skeleton)
     full_clique_tree = get_clique_tree(ug)
-    current_clique_subtree = full_clique_tree
+    current_clique_subtree = full_clique_tree.undirected_copy().to_nx()
     clique_graph = get_clique_graph(ug)
     dcg = get_directed_clique_graph(dag)
 
@@ -307,7 +432,7 @@ def dct_policy(dag: DAG, verbose=False, check=True) -> set:
         central_clique = get_tree_centroid(current_clique_subtree, verbose=False)
         if verbose: print(f'Picked central clique: {central_clique}')
 
-        full_clique_tree, clique_graph, extra_nodes = apply_clique_intervention(
+        full_clique_tree, clique_graph, extra_nodes = apply_clique_intervention2(
             full_clique_tree,
             None,
             clique_graph,
@@ -326,13 +451,16 @@ def dct_policy(dag: DAG, verbose=False, check=True) -> set:
 
         # TAKE SUBTREE
         remaining_cliques = {
-            clique for clique in full_clique_tree._nodes
-            if full_clique_tree.neighbor_degree_of(clique) != 0
+            clique for clique in clique_graph._nodes
+            if clique_graph.neighbor_degree_of(clique) != 0
         }
         # print(clique_graph.undirected_keys)
         if verbose: print(f"Remaining cliques: {remaining_cliques}")
-        current_clique_subtree = current_clique_subtree.induced_graph(remaining_cliques)
+        # current_clique_subtree = current_clique_subtree.induced_graph(remaining_cliques)
         # print(current_clique_subtree.undirected_keys)
+        if not remaining_cliques:
+            break
+        current_clique_subtree = cg2ct(clique_graph.induced_graph(remaining_cliques))
 
     new_dct = dcg2dct(clique_graph)
     cg = clique_graph.copy()
@@ -363,10 +491,15 @@ def dct_policy(dag: DAG, verbose=False, check=True) -> set:
 
         resolved_cliques.update(next_clique)
     if verbose: print(f"*** {len(phase2_nodes)} intervened in Phase II")
-    if verbose: print(f"extra nodes not intervened in Phase II: {all_extra_nodes - phase2_nodes}")
+    # if verbose: print(f"extra nodes not intervened in Phase II: {all_extra_nodes - phase2_nodes}")
     if check and 3*optimal_ivs < len(phase2_nodes):
         print(f"Phase II bound: {3*optimal_ivs}, used={len(phase2_nodes)}")
         print("------------ BROKEN -------------")
+        raise RuntimeError
+    if check and not all_extra_nodes <= phase2_nodes:
+        print(f"extra nodes not intervened in Phase II: {all_extra_nodes - phase2_nodes}")
+        print(f"---- BROKEN ----")
+        raise RuntimeError
 
     return intervened_nodes
 

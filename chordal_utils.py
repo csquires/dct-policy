@@ -112,7 +112,7 @@ def get_induced_chordal(clique_tree):
     return induced_graph
 
 
-def get_tree_centroid(tree: UndirectedGraph, verbose=False):
+def get_tree_centroid(tree: nx.Graph, verbose=False):
     """
     Find a centroid of a tree, i.e., a node whose removal splits the tree into a forest with no more than
     half of the nodes in any component.
@@ -126,7 +126,7 @@ def get_tree_centroid(tree: UndirectedGraph, verbose=False):
     -------
 
     """
-    tree = tree.to_nx()
+    # tree = tree.to_nx()
     nnodes = tree.number_of_nodes()
 
     candidate_nodes = list(tree.nodes())

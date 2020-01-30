@@ -35,20 +35,19 @@ class LabelledMixedGraph:
             self._nodes.add(j)
         for i, j in self._semidirected.keys():
             self._semichildren[i].add(j)
-            self._parents[j].add(i)
+            self._semiparents[j].add(i)
             self._nodes.add(i)
             self._nodes.add(j)
 
     # === BUILT-INS
-    @property
     def __str__(self):
         s = ""
         s += f"Directed edges: {self._directed}\n"
         s += f"Undirected edges: {self._undirected}\n"
         s += f"Bidirected edges: {self._bidirected}\n"
+        s += f"Semidirected edges: {self._semidirected}\n"
         return s
 
-    @property
     def __repr__(self):
         return str(self)
 
@@ -243,26 +242,26 @@ class LabelledMixedGraph:
         semi_directed_onto = {(p, node): self._semidirected[(p, node)] for p in self._semiparents[node]}
         return {**directed_onto, **bidirected_onto, **semi_directed_onto}
 
+    def onto_nodes(self, node):
+        return {*self._parents[node], *self._spouses[node], *self._semiparents[node]}
+
     # === EDGE FUNCTIONALS
     def get_label(self, edge, ignore_error=True):
-        try:
-            label = self._directed.get(edge)
-            if label: return label
-            label = self._directed.get(tuple(reversed(edge)))
-            if label: return label
-            label = self._undirected.get(frozenset({*edge}))
-            if label: return label
-            label = self._bidirected[frozenset({*edge})]
-            if label: return label
-            label = self._semidirected.get(edge)
-            if label: return label
-            label = self._semidirected.get(tuple(reversed(edge)))
-            if label: return label
-        except KeyError as e:
-            if ignore_error:
-                pass
-            else:
-                raise e
+        label = self._directed.get(edge)
+        if label: return label
+        label = self._directed.get(tuple(reversed(edge)))
+        if label: return label
+        label = self._undirected.get(frozenset({*edge}))
+        if label: return label
+        label = self._bidirected.get(frozenset({*edge}))
+        if label: return label
+        label = self._semidirected.get(edge)
+        if label: return label
+        label = self._semidirected.get(tuple(reversed(edge)))
+        if label: return label
+
+        if not ignore_error:
+            raise KeyError(f"No edge {edge}")
 
     def directed_edges_with_label(self, label):
         return {edge for edge, l in self._directed.items() if l == label}
@@ -369,8 +368,8 @@ class LabelledMixedGraph:
     def remove_semidirected(self, i, j, ignore_error=True):
         try:
             label = self._semidirected.pop((i, j))
-            self._semichildren[j].remove(i)
-            self._semiparents[i].remove(j)
+            self._semiparents[j].remove(i)
+            self._semichildren[i].remove(j)
             return label
         except KeyError as e:
             if ignore_error:
@@ -460,7 +459,7 @@ class LabelledMixedGraph:
         label = self.remove_directed(i, j) if label is None else label
         label = self.remove_directed(j, i) if label is None else label
         if label or not check_exists:
-            self.add_undirected(i, j, label)
+            self.add_semidirected(i, j, label)
 
     def all_to_undirected(self):
         self._undirected.update({frozenset({i, j}): label for (i, j), label in self._directed.items()})
