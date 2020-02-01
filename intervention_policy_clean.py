@@ -10,10 +10,9 @@ from collections import defaultdict
 from networkx.utils import UnionFind
 
 
-def dcg2dct(dcg: LabelledMixedGraph, verbose=True):
+def dcg2dct(dcg: LabelledMixedGraph, verbose=False):
     clique_tree = nx.MultiDiGraph()
     clique_tree.add_nodes_from(dcg.nodes)
-    print('============')
 
     subtrees = UnionFind()
     bidirected_components = UnionFind()
