@@ -51,6 +51,13 @@ class LabelledMixedGraph:
     def __repr__(self):
         return str(self)
 
+    def __eq__(self, other):
+        same_dir = self._directed == other._directed
+        same_bidir = self._bidirected == other._bidirected
+        same_undir = self._undirected == other._undirected
+        same_semidir = self._semidirected == other._semidirected
+        return same_dir and same_bidir and same_undir and same_semidir
+
     def copy(self):
         return LabelledMixedGraph(
             nodes=self._nodes,
@@ -96,6 +103,10 @@ class LabelledMixedGraph:
     @property
     def semidirected_keys(self):
         return set(self._semidirected.keys())
+
+    @property
+    def nnodes(self):
+        return len(self._nodes)
 
     @property
     def num_directed(self):
@@ -247,17 +258,18 @@ class LabelledMixedGraph:
 
     # === EDGE FUNCTIONALS
     def get_label(self, edge, ignore_error=True):
-        label = self._directed.get(edge)
+        i, j = edge
+        label = self._directed.get((i, j))
         if label: return label
-        label = self._directed.get(tuple(reversed(edge)))
+        label = self._directed.get((j, i))
         if label: return label
         label = self._undirected.get(frozenset({*edge}))
         if label: return label
         label = self._bidirected.get(frozenset({*edge}))
         if label: return label
-        label = self._semidirected.get(edge)
+        label = self._semidirected.get((i, j))
         if label: return label
-        label = self._semidirected.get(tuple(reversed(edge)))
+        label = self._semidirected.get((j, i))
         if label: return label
 
         if not ignore_error:

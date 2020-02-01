@@ -7,6 +7,8 @@ from utils import write_list, read_list
 import networkx as nx
 from tqdm import tqdm
 from enum import Enum
+from chordal_utils import get_directed_clique_graph
+from mixed_graph import LabelledMixedGraph
 
 
 class DagSampler(Enum):
@@ -15,11 +17,12 @@ class DagSampler(Enum):
 
 
 class DagLoader:
-    def __init__(self, nnodes: int, num_dags: int, sampler: DagSampler, other_params: dict):
+    def __init__(self, nnodes: int, num_dags: int, sampler: DagSampler, other_params: dict, comparable_edges=False):
         self.nnodes = nnodes
         self.other_params = other_params
         self.num_dags = num_dags
         self.sampler = sampler
+        self.comparable_edges = comparable_edges
 
     @property
     def dag_folder(self):
@@ -32,18 +35,22 @@ class DagLoader:
 
     def get_dags(self, overwrite=False):
         if overwrite or not os.path.exists(self.dag_folder):
-            if self.sampler == DagSampler.CHORDAL2:
-                dags = [
-                    DAG.from_nx(d) for d in
-                    random_chordal_graph2(self.nnodes, self.other_params['density'], self.num_dags)
-                ]
-            elif self.sampler == DagSampler.TREE_PLUS:
-                dags = [
-                    DAG.from_nx(d) for d in
-                    tree_plus(self.nnodes, self.other_params['e_min'], self.other_params['e_max'], self.num_dags)
-                ]
-            else:
-                raise ValueError
+            dags = []
+            counter = 0
+            while len(dags) < self.num_dags:
+                counter += 1
+                if counter > 100:
+                    raise RuntimeError('change parameters, not getting incomparable graphs')
+                if self.sampler == DagSampler.CHORDAL2:
+                    d = DAG.from_nx(random_chordal_graph2(self.nnodes, self.other_params['density']))
+                elif self.sampler == DagSampler.TREE_PLUS:
+                    d = DAG.from_nx(tree_plus(self.nnodes, self.other_params['e_min'], self.other_params['e_max']))
+                else:
+                    raise ValueError
+                if self.comparable_edges or get_directed_clique_graph(d) == LabelledMixedGraph.from_nx(d.directed_clique_tree()):
+                    counter = 0
+                    dags.append(d)
+                    print(len(dags))
             if any(len(d.vstructures()) > 0 for d in dags):
                 print([len(d.vstructures()) for d in dags])
                 raise ValueError("DAG has v-structures")

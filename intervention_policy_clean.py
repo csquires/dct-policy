@@ -7,62 +7,39 @@ from causaldag import UndirectedGraph, DAG
 import random
 import itertools as itr
 from collections import defaultdict
+from networkx.utils import UnionFind
 
 
-def dcg2dct(dcg: LabelledMixedGraph):
-    # === get max cliques
-    max_cliques = dcg.nodes
-    overlap_to_edges = defaultdict(set)
-    for edge, label in dcg.directed.items():
-        overlap_to_edges[len(label)].add(edge)
-    for edge, label in dcg.bidirected.items():
-        overlap_to_edges[len(label)].add(edge)
-
+def dcg2dct(dcg: LabelledMixedGraph, verbose=True):
     clique_tree = nx.MultiDiGraph()
-    # greedily choose edges to create a directed clique tree
-    current_threshold = max(overlap_to_edges)
-    for _ in range(len(max_cliques)-1):
-        while current_threshold > 0:
-            candidate_edges = list(overlap_to_edges[current_threshold])
-            candidate_trees = [clique_tree.copy() for _ in candidate_edges]
-            for t, edge in zip(candidate_trees, candidate_edges):
-                c1, c2 = edge
-                if isinstance(edge, frozenset):
-                    t.add_edge(c1, c2)
-                    t.add_edge(c2, c1)
-                else:
-                    t.add_edge(c1, c2)
+    clique_tree.add_nodes_from(dcg.nodes)
+    print('============')
 
-            # only keep forests
-            candidate_trees = [t for t in candidate_trees if nx.is_forest(t.to_undirected())]
-
-            if not candidate_trees:
-                current_threshold -= 1
-                continue
-
-            # only keep if single source in each component
-            candidate_trees_no_collider = []
-            for t in candidate_trees:
-                components = [nx.subgraph(t, component) for component in nx.strongly_connected_components(t)]
-                components2parents = [set.union(*(set(t.predecessors(node)) - c.nodes() for node in c)) for c in components]
-                if all(len(parents) <= 1 for parents in components2parents):
-                    candidate_trees_no_collider.append(t)
-            if not candidate_trees_no_collider:
-                raise Exception("Can't find a collider-free tree")
-
-            # choose clique tree without new -><->, if possible
-            preferred_candidate_trees = []
-            for t in candidate_trees_no_collider:
-                new_edge = set(t.edges()) - set(clique_tree.edges())
-                c1, c2 = list(new_edge)[0]
-                if not t.has_edge(c2, c1):
-                    preferred_candidate_trees.append(t)
-                else:
-                    if not set(t.predecessors(c1)) - {c2} and not set(t.predecessors(c2)) - {c1}:
-                        preferred_candidate_trees.append(t)
-
-            clique_tree = preferred_candidate_trees[0] if preferred_candidate_trees else candidate_trees_no_collider[0]
-            break
+    subtrees = UnionFind()
+    bidirected_components = UnionFind()
+    for c1, c2 in sorted(dcg.directed_keys | dcg.bidirected_keys, key=lambda e: len(dcg.get_label(e)), reverse=True):
+        if verbose: print(f"=== Considering edge {c1}-{c2}")
+        if subtrees[c1] != subtrees[c2]:  # check adding edge won't make a cycle
+            if dcg.has_bidirected((c1, c2)):  # if bidirected, add
+                if verbose: print(f"Adding edge {c1}<->{c2}")
+                clique_tree.add_edge(c1, c2)
+                clique_tree.add_edge(c2, c1)
+                bidirected_components.union(c1, c2)
+                subtrees.union(c1, c2)
+            else:  # if directed, check that c1 won't become a conflicting source
+                c2_parent = bidirected_components[c2]
+                bidirected_component = [
+                    c for c, parent in bidirected_components.parents.items()
+                    if parent == c2_parent
+                ]
+                has_source = any(
+                    set(clique_tree.predecessors(c)) - set(clique_tree.successors(c))
+                    for c in bidirected_component
+                )
+                if not has_source:
+                    if verbose: print(f"Adding edge {c1}->{c2}")
+                    clique_tree.add_edge(c1, c2)
+                    subtrees.union(c1, c2)
 
     labels = {(c1, c2, 0): c1 & c2 for c1, c2 in clique_tree.edges()}
     nx.set_edge_attributes(clique_tree, labels, name='label')
@@ -388,7 +365,7 @@ def apply_clique_intervention(
     return new_clique_tree, new_clique_graph, extra_nodes
 
 
-def dct_policy(dag: DAG, verbose=False, check=True) -> set:
+def dct_policy(dag: DAG, verbose=False, check=False) -> set:
     """
     Use the DCT policy to fully orient the given DAG, as if it was an undirected graph.
 
@@ -407,8 +384,8 @@ def dct_policy(dag: DAG, verbose=False, check=True) -> set:
         nx_graph = dag.to_nx()
         cliques = nx.chordal_graph_cliques(nx_graph.to_undirected())
         log_num_cliques = np.ceil(np.log2(len(cliques)))
-        clique_size = max((len(c) for c in cliques))
-        true_dct = LabelledMixedGraph.from_nx(dag.directed_clique_tree())
+        # clique_size = max((len(c) for c in cliques))
+        # true_dct = LabelledMixedGraph.from_nx(dag.directed_clique_tree())
 
     ug = UndirectedGraph(nodes=dag.nodes, edges=dag.skeleton)
     full_clique_tree = get_clique_tree(ug)
@@ -502,4 +479,22 @@ def dct_policy(dag: DAG, verbose=False, check=True) -> set:
         raise RuntimeError
 
     return intervened_nodes
+
+
+if __name__ == '__main__':
+    from directed_chordal_utils import tree_plus
+    from line_profiler import LineProfiler
+    import causaldag as cd
+
+
+    def run_dct_policy():
+        dct_policy(d)
+
+    lp = LineProfiler()
+    lp.add_function(dct_policy)
+    lp.runcall(run_dct_policy)
+    lp.print_stats()
+
+
+
 

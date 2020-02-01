@@ -62,21 +62,21 @@ if __name__ == '__main__':
     from chordal_utils import get_directed_clique_graph
 
     # nnodes = 18
-    nnodes = 8
+    nnodes = 10
     random.seed(81248)
-    dl = DagLoader(nnodes, 1000, DagSampler.TREE_PLUS, dict(e_min=2, e_max=5))
+    dl = DagLoader(nnodes, 10, DagSampler.TREE_PLUS, dict(e_min=2, e_max=5), comparable_edges=True)
     dl.get_dags(overwrite=True)
     ar_random = AlgRunner('random', dl)
     ar_dct = AlgRunner('dct', dl)
 
-    RUN_ALL = False
+    RUN_ALL = True
     if RUN_ALL:
         results_random = ar_random.get_alg_results(overwrite=True)
         results_dct = ar_dct.get_alg_results(overwrite=True)
         clique_sizes = dl.max_clique_sizes()
         num_cliques = dl.num_cliques()
         optimal_ivs = dl.get_verification_optimal_ivs()
-        bound = np.ceil(np.log2(num_cliques)) * clique_sizes + 3*optimal_ivs
+        bound = np.ceil(np.log2(num_cliques)) * clique_sizes + 2*optimal_ivs
 
         print("Number of cliques")
         print(num_cliques)
@@ -96,12 +96,12 @@ if __name__ == '__main__':
         print(np.mean(results_random))
         print(np.mean(results_dct))
 
-    ix = 27
-    d = dl.get_dags()[ix]
-    dct = d.directed_clique_tree()
-    dcg = get_directed_clique_graph(d)
-    dct_ = LabelledMixedGraph.from_nx(dct)
-    ar_dct.specific_dag(ix, verbose=True)
+    # ix = 27
+    # d = dl.get_dags()[ix]
+    # dct = d.directed_clique_tree()
+    # dcg = get_directed_clique_graph(d)
+    # dct_ = LabelledMixedGraph.from_nx(dct)
+    # ar_dct.specific_dag(ix, verbose=True)
     # ar_random.specific_dag(ix)
 
 
