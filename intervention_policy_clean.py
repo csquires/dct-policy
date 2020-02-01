@@ -48,27 +48,14 @@ def dcg2dct(dcg: LabelledMixedGraph, verbose=True):
 
 
 def cg2ct(cg: LabelledMixedGraph):
-    max_cliques = cg.nodes
-    overlap_to_edges = defaultdict(set)
-    for edge, label in cg.undirected.items():
-        overlap_to_edges[len(label)].add(edge)
+    ct = nx.Graph()
+    subtrees = UnionFind()
+    for c1, c2 in sorted(cg.undirected_keys, key=lambda e: len(cg.get_label(e)), reverse=True):
+        if subtrees[c1] != subtrees[c2]:
+            ct.add_edge(c1, c2)
+            subtrees.union(c1, c2)
 
-    clique_tree = nx.Graph()
-    current_threshold = max(overlap_to_edges)
-    for _ in range(len(max_cliques)-1):
-        while current_threshold > 0:
-            candidate_edges = list(overlap_to_edges[current_threshold] - {frozenset({i, j}) for i, j in clique_tree.edges})
-            candidate_trees = [clique_tree.copy() for _ in candidate_edges]
-            for t, edge in zip(candidate_trees, candidate_edges):
-                t.add_edge(*edge)
-            candidate_trees = [t for t in candidate_trees if nx.is_forest(t.to_undirected())]
-            if not candidate_trees:
-                current_threshold -= 1
-                continue
-            clique_tree = candidate_trees[0]
-            break
-
-    return clique_tree
+    return ct
 
 
 def incomparable(edge1, edge2, clique_graph):
@@ -388,10 +375,11 @@ def dct_policy(dag: DAG, verbose=False, check=False) -> set:
         # true_dct = LabelledMixedGraph.from_nx(dag.directed_clique_tree())
 
     ug = UndirectedGraph(nodes=dag.nodes, edges=dag.skeleton)
-    full_clique_tree = get_clique_tree(ug)
+    cliques = nx.chordal_graph_cliques(ug.to_nx())  # costly
+    full_clique_tree = get_clique_tree(ug, cliques=cliques)
     current_clique_subtree = full_clique_tree.undirected_copy().to_nx()
-    clique_graph = get_clique_graph(ug)
-    dcg = get_directed_clique_graph(dag)
+    clique_graph = get_clique_graph(ug, cliques=cliques)  # costly
+    dcg = get_directed_clique_graph(dag, clique_graph=clique_graph)
 
     intervened_nodes = set()
     regular_phase1 = set()
@@ -486,9 +474,11 @@ if __name__ == '__main__':
     from line_profiler import LineProfiler
     import causaldag as cd
 
+    d = cd.DAG.from_nx(tree_plus(100, 2, 5))
 
     def run_dct_policy():
-        dct_policy(d)
+        iv_nodes = dct_policy(d)
+        print(iv_nodes)
 
     lp = LineProfiler()
     lp.add_function(dct_policy)

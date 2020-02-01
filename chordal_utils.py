@@ -5,10 +5,10 @@ from mixed_graph import LabelledMixedGraph
 from causaldag import UndirectedGraph, DAG
 
 
-def get_directed_clique_graph(dag: DAG) -> LabelledMixedGraph:
+def get_directed_clique_graph(dag: DAG, clique_graph: LabelledMixedGraph=None) -> LabelledMixedGraph:
     ug = UndirectedGraph(nodes=dag._nodes, edges=dag._arcs)
     ug.add_edges_from(dag.arcs)
-    clique_graph = get_clique_graph(ug)
+    clique_graph = get_clique_graph(ug) if clique_graph is None else clique_graph
     directed_edges = dict()
     bidirected_edges = dict()
     for (c1, c2), label in clique_graph.undirected.items():
@@ -24,7 +24,7 @@ def get_directed_clique_graph(dag: DAG) -> LabelledMixedGraph:
     return LabelledMixedGraph(directed=directed_edges, bidirected=bidirected_edges)
 
 
-def get_clique_graph(ug: UndirectedGraph) -> LabelledMixedGraph:
+def get_clique_graph(ug: UndirectedGraph, cliques=None) -> LabelledMixedGraph:
     """
     Compute the (reduced) clique graph of a chordal graph, i.e., the union of all clique trees.
 
@@ -38,9 +38,9 @@ def get_clique_graph(ug: UndirectedGraph) -> LabelledMixedGraph:
     """
     if not isinstance(ug, UndirectedGraph):
         raise ValueError("Not an UndirectedGraph")
-    clique_tree = get_clique_tree(ug)
+    clique_tree = get_clique_tree(ug, cliques=cliques)
     ug = ug.to_nx()
-    cliques = nx.chordal_graph_cliques(ug)
+    cliques = nx.chordal_graph_cliques(ug) if cliques is None else cliques
 
     # === C1-C2 is in the clique graph iff c1&c2 is the label of some edge on the path between them
     paths = dict(nx.all_pairs_shortest_path(clique_tree.to_nx()))
@@ -56,7 +56,7 @@ def get_clique_graph(ug: UndirectedGraph) -> LabelledMixedGraph:
     return LabelledMixedGraph.from_nx(clique_graph)
 
 
-def get_clique_tree(ug: UndirectedGraph) -> LabelledMixedGraph:
+def get_clique_tree(ug: UndirectedGraph, cliques=None) -> LabelledMixedGraph:
     """
     Compute a clique tree for a chordal graph by finding a max-weight spanning tree of the clique intersection graph.
 
@@ -70,7 +70,7 @@ def get_clique_tree(ug: UndirectedGraph) -> LabelledMixedGraph:
     """
     if not isinstance(ug, UndirectedGraph):
         raise ValueError("Not an UndirectedGraph")
-    cliques = nx.chordal_graph_cliques(ug.to_nx())
+    cliques = nx.chordal_graph_cliques(ug.to_nx()) if cliques is None else cliques
     clique_intersection_graph = nx.Graph()
     clique_intersection_graph.add_nodes_from(cliques)
     clique_intersection_graph.add_edges_from(
