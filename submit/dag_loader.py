@@ -1,6 +1,6 @@
 import os
 from submit.config import DATA_FOLDER
-from directed_chordal_utils import random_chordal_graph2, tree_plus
+from random_graphs import random_chordal_graph2, tree_plus, hairball_plus
 import numpy as np
 from causaldag import DAG
 from utils import write_list, read_list
@@ -14,6 +14,7 @@ from mixed_graph import LabelledMixedGraph
 class DagSampler(Enum):
     CHORDAL2 = 1
     TREE_PLUS = 2
+    HAIRBALL_PLUS = 3
 
 
 class DagLoader:
@@ -45,6 +46,13 @@ class DagLoader:
                     d = DAG.from_nx(random_chordal_graph2(self.nnodes, self.other_params['density']))
                 elif self.sampler == DagSampler.TREE_PLUS:
                     d = DAG.from_nx(tree_plus(self.nnodes, self.other_params['e_min'], self.other_params['e_max']))
+                elif self.sampler == DagSampler.HAIRBALL_PLUS:
+                    d = DAG.from_nx(hairball_plus(
+                        self.other_params['num_layers'],
+                        self.other_params['degree'],
+                        self.other_params['e_min'],
+                        self.other_params['e_max']
+                    ))
                 else:
                     raise ValueError
                 if self.comparable_edges or get_directed_clique_graph(d) == LabelledMixedGraph.from_nx(d.directed_clique_tree()):

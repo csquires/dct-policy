@@ -62,9 +62,10 @@ if __name__ == '__main__':
     from chordal_utils import get_directed_clique_graph
 
     # nnodes = 18
-    nnodes = 60
+    nnodes = 10
     random.seed(81248)
-    dl = DagLoader(nnodes, 10, DagSampler.TREE_PLUS, dict(e_min=2, e_max=5), comparable_edges=True)
+    # dl = DagLoader(nnodes, 10, DagSampler.TREE_PLUS, dict(e_min=10, e_max=20), comparable_edges=True)
+    dl = DagLoader(nnodes, 10, DagSampler.HAIRBALL_PLUS, dict(num_layers=5, degree=3, e_min=10, e_max=20), comparable_edges=True)
     dl.get_dags(overwrite=True)
     ar_random = AlgRunner('random', dl)
     ar_dct = AlgRunner('dct', dl)
