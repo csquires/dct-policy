@@ -3,11 +3,35 @@ import operator as op
 import numpy as np
 import networkx as nx
 from mixed_graph import LabelledMixedGraph
-from causaldag import UndirectedGraph, DAG
+from causaldag import UndirectedGraph, DAG, PDAG
 import random
 import itertools as itr
 from collections import defaultdict
 from networkx.utils import UnionFind
+
+
+def is_oriented(c1: frozenset, c2: frozenset, cpdag: PDAG) -> bool:
+    shared = c1 & c2
+    c1_ = c1 - shared
+    c2_ = c2 - shared
+    if any(cpdag.has_arc(c, s) for c, s in itr.product(c1_ | c2_, shared)):
+        return True
+    if all(cpdag.has_arc(s, c) for s, c in itr.product(shared, c1_ | c2_)):
+        return True
+    return False
+
+
+def simulate_clique_intervention(dcg: LabelledMixedGraph, cpdag: PDAG, dag: DAG, intervened_clique: frozenset, simple=False):
+    if simple:
+        cpdag = cpdag.interventional_cpdag(dag, intervened_clique)
+        return cpdag, intervened_clique
+    adj_cliques = dcg.adjacent_to(intervened_clique)
+    intervened_nodes = set()
+    while not all(is_oriented(intervened_clique, c, cpdag) for c in adj_cliques):
+        node = random.choice(list(intervened_clique - intervened_nodes))
+        intervened_nodes.add(node)
+        cpdag = cpdag.interventional_cpdag(dag, {node})
+    return cpdag, intervened_nodes
 
 
 def dcg2dct(dcg: LabelledMixedGraph, verbose=False):
@@ -379,6 +403,7 @@ def dct_policy(dag: DAG, verbose=False, check=False) -> set:
     current_clique_subtree = full_clique_tree.undirected_copy().to_nx()
     clique_graph = get_clique_graph(ug, cliques=cliques)  # costly
     dcg = get_directed_clique_graph(dag, clique_graph=clique_graph)
+    cpdag = dag.cpdag()
 
     intervened_nodes = set()
     regular_phase1 = set()
@@ -394,7 +419,9 @@ def dct_policy(dag: DAG, verbose=False, check=False) -> set:
 
         # INTERVENE ON THE CENTRAL CLIQUE
         central_clique = get_tree_centroid(current_clique_subtree, verbose=False)
-        if verbose: print(f'Picked central clique: {central_clique}')
+        if verbose:
+            print(f'Picked central clique: {central_clique}')
+        cpdag, intervened_nodes_central = simulate_clique_intervention(dcg, cpdag, dag, central_clique)
 
         full_clique_tree, clique_graph, extra_nodes = apply_clique_intervention2(
             full_clique_tree,
@@ -405,11 +432,13 @@ def dct_policy(dag: DAG, verbose=False, check=False) -> set:
             verbose=verbose,
             dag=dag
         )
+        if extra_nodes:
+            cpdag = cpdag.interventional_cpdag(dag, extra_nodes)
 
         # RECORD THE NODES THAT WERE INTERVENED ON
-        intervened_nodes.update(central_clique)
+        intervened_nodes.update(intervened_nodes_central)
         intervened_nodes.update(extra_nodes)
-        regular_phase1.update(central_clique)
+        regular_phase1.update(intervened_nodes_central)
         all_extra_nodes.update(extra_nodes)
         cliques_phase1.append(central_clique)
 
@@ -418,10 +447,7 @@ def dct_policy(dag: DAG, verbose=False, check=False) -> set:
             clique for clique in clique_graph._nodes
             if clique_graph.neighbor_degree_of(clique) != 0
         }
-        # print(clique_graph.undirected_keys)
         if verbose: print(f"Remaining cliques: {remaining_cliques}")
-        # current_clique_subtree = current_clique_subtree.induced_graph(remaining_cliques)
-        # print(current_clique_subtree.undirected_keys)
         if not remaining_cliques:
             break
         current_clique_subtree = cg2ct(clique_graph.induced_graph(remaining_cliques))
