@@ -8,6 +8,13 @@ def powerset(s):
 
 
 def powerset_monotone(s, predicate):
+    # any_satisfy = True
+    # for r in range(len(s)+1):
+    #     if any_satisfy:
+    #         for ss in itr.combinations(s, r):
+    #             if predicate(ss):
+    #                 any_satisfy = True
+    #                 yield frozenset(ss)
     return (ss for ss in powerset(s) if predicate(ss))
 
 

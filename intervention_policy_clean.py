@@ -34,6 +34,15 @@ def simulate_clique_intervention(dcg: LabelledMixedGraph, cpdag: PDAG, dag: DAG,
     return cpdag, intervened_nodes
 
 
+def intervene_inside_clique(cpdag: PDAG, dag: DAG, clique: frozenset) -> (PDAG, set):
+    intervened_nodes = set()
+    while any(cpdag.has_edge(i, j) for i, j in itr.combinations(clique, 2)):
+        node = random.choice(list(clique - intervened_nodes))
+        intervened_nodes.add(node)
+        cpdag = cpdag.interventional_cpdag(dag, {node})
+    return cpdag, intervened_nodes
+
+
 def dcg2dct(dcg: LabelledMixedGraph, verbose=False):
     clique_tree = nx.MultiDiGraph()
     clique_tree.add_nodes_from(dcg.nodes)
@@ -475,8 +484,9 @@ def dct_policy(dag: DAG, verbose=False, check=False) -> set:
     for next_clique, _ in sorted_cliques:
         # intervene on all nodes in this clique if it doesn't have a residual of size one
         if len(next_clique - resolved_cliques) > 1:
+            cpdag, intervened_nodes_inside = intervene_inside_clique(cpdag, dag, next_clique - resolved_cliques)
             if verbose: print(f"intervened on {next_clique}")
-            intervened_nodes.update(next_clique - resolved_cliques)
+            intervened_nodes.update(intervened_nodes_inside)
             phase2_nodes.update(next_clique - resolved_cliques)
 
         resolved_cliques.update(next_clique)

@@ -1,18 +1,20 @@
 import os
 from submit.dag_loader import DagLoader, DagSampler
 from intervention_policy_clean import dct_policy
-from submit.baselines import random_policy, max_degree_policy
+from submit.baselines import random_policy, max_degree_policy, opt_single_policy
 from utils import write_list
 import numpy as np
 from tqdm import tqdm
 import random
+from p_tqdm import p_map
 from multiprocessing import Pool, cpu_count
 
 
 ALG_DICT = {
     'dct': dct_policy,
     'random': random_policy,
-    'max_degree': max_degree_policy
+    'max_degree': max_degree_policy,
+    'opt_single': opt_single_policy
 }
 
 
@@ -25,23 +27,29 @@ class AlgRunner:
     def alg_folder(self):
         return os.path.join(self.dag_loader.dag_folder, 'results', f'alg={self.alg}')
 
-    def get_alg_results(self, overwrite=False, validate=True):
+    def get_alg_results(self, overwrite=False, validate=True, multithread=True):
         random.seed(9859787)
         result_filename = os.path.join(self.alg_folder, f'num_nodes_list.npy')
         if overwrite or not os.path.exists(self.alg_folder):
             dags = self.dag_loader.get_dags()
             os.makedirs(self.alg_folder, exist_ok=True)
-            num_nodes_list = []
-            for ix, dag in tqdm(enumerate(dags), total=len(dags)):
-                print(ix)
+
+            def run_alg(dag):
                 intervened_nodes = ALG_DICT[self.alg](dag)
                 if validate:
                     cpdag = dag.interventional_cpdag([{node} for node in intervened_nodes], cpdag=dag.cpdag())
                     if cpdag.num_edges > 0:
                         print(f"**************** BROKEN")
-                        print(f"{ix}, alg={self.alg}, num intervened = {len(intervened_nodes)}, num edges={cpdag.num_edges}")
-                write_list(intervened_nodes, os.path.join(self.alg_folder, f'nodes{ix}.txt'))
-                num_nodes_list.append(len(intervened_nodes))
+                        print(f"alg={self.alg}, num intervened = {len(intervened_nodes)}, num edges={cpdag.num_edges}")
+                        raise RuntimeError
+                # write_list(intervened_nodes, os.path.join(self.alg_folder, f'nodes{ix}.txt'))
+                return len(intervened_nodes)
+
+            if multithread:
+                num_nodes_list = p_map(run_alg, dags)
+            else:
+                num_nodes_list = list(tqdm((run_alg(dag) for dag in dags), total=len(dags)))
+
             np.save(result_filename, np.array(num_nodes_list))
             return np.array(num_nodes_list)
         else:
@@ -62,10 +70,10 @@ if __name__ == '__main__':
     from chordal_utils import get_directed_clique_graph
 
     # nnodes = 18
-    nnodes = 20
-    random.seed(81248)
-    dl = DagLoader(nnodes, 10, DagSampler.TREE_PLUS, dict(e_min=2, e_max=5), comparable_edges=True)
-    # dl = DagLoader(nnodes, 10, DagSampler.HAIRBALL_PLUS, dict(num_layers=5, degree=3, e_min=10, e_max=20), comparable_edges=True)
+    nnodes = 100
+    random.seed(8128)
+    # dl = DagLoader(nnodes, 10, DagSampler.TREE_PLUS, dict(e_min=2, e_max=5), comparable_edges=True)
+    dl = DagLoader(nnodes, 10, DagSampler.HAIRBALL_PLUS, dict(num_layers=5, degree=3, e_min=2, e_max=5), comparable_edges=True)
     dl.get_dags(overwrite=True)
     ar_random = AlgRunner('random', dl)
     ar_dct = AlgRunner('dct', dl)

@@ -5,13 +5,14 @@ from typing import Union, List
 from directed_chordal_utils import direct_chordal_graph, fill_vstructures
 
 
-def hairball(num_layers: int, degree: int):
-    return nx.full_rary_tree(degree, sum((degree**i for i in range(num_layers))), create_using=nx.DiGraph)
+def hairball(degree: int, num_layers: int = None, nnodes: int = None):
+    nnodes = sum((degree**i for i in range(num_layers))) if nnodes is None else nnodes
+    return nx.full_rary_tree(degree, nnodes, create_using=nx.DiGraph)
 
 
-def hairball_plus(num_layers: int, degree: int, e_min: int, e_max: int, ngraphs: int = 1):
+def hairball_plus(degree: int, e_min: int, e_max: int, ngraphs: int = 1, num_layers: int = None, nnodes: int = None):
     if ngraphs == 1:
-        g = hairball(num_layers, degree)
+        g = hairball(degree, num_layers=num_layers, nnodes=nnodes)
         order = list(nx.topological_sort(g))
         num_extra_edges = random.randint(e_min, e_max)
         extra_edges = random.sample(list(itr.combinations(order, 2)), num_extra_edges)
@@ -19,7 +20,7 @@ def hairball_plus(num_layers: int, degree: int, e_min: int, e_max: int, ngraphs:
         fill_vstructures(g, order)
         return g
     else:
-        return [tree_plus(num_layers, degree, e_min, e_max) for _ in range(ngraphs)]
+        return [hairball_plus(degree, e_min, e_max, num_layers=num_layers, nnodes=nnodes) for _ in range(ngraphs)]
 
 
 def random_directed_tree(nnodes: int):

@@ -1,7 +1,40 @@
-from causaldag import DAG
+from causaldag import DAG, PDAG
 import random
 from utils import random_max
 import numpy as np
+import itertools as itr
+from utils import powerset_monotone
+
+
+def is_clique(cpdag, s):
+    return all(cpdag.has_edge(i, j) for i, j in itr.combinations(s, 2))
+
+
+def pick_opt_single(cpdag: PDAG):
+    minmax = float('inf')
+    minmax_node = None
+    for node in cpdag.nodes - cpdag.dominated_nodes:
+        max_edges_left = -float('inf')
+        for p in powerset_monotone(cpdag.undirected_neighbors_of(node), lambda c: is_clique(cpdag, c)):
+            cpdag_ = cpdag.copy()
+            cpdag_.assign_parents(node, p)
+            max_edges_left = max(max_edges_left, cpdag_.num_edges)
+
+        if max_edges_left < minmax:
+            minmax = max_edges_left
+            minmax_node = node
+
+    return minmax_node
+
+
+def opt_single_policy(dag: DAG) -> set:
+    intervened_nodes = set()
+    current_cpdag = dag.cpdag()
+    while current_cpdag.num_arcs != dag.num_arcs:
+        node = pick_opt_single(current_cpdag)
+        intervened_nodes.add(node)
+        current_cpdag = current_cpdag.interventional_cpdag(dag, {node})
+    return intervened_nodes
 
 
 def random_policy(dag: DAG, verbose: bool = False) -> set:

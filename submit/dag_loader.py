@@ -48,10 +48,11 @@ class DagLoader:
                     d = DAG.from_nx(tree_plus(self.nnodes, self.other_params['e_min'], self.other_params['e_max']))
                 elif self.sampler == DagSampler.HAIRBALL_PLUS:
                     d = DAG.from_nx(hairball_plus(
-                        self.other_params['num_layers'],
                         self.other_params['degree'],
                         self.other_params['e_min'],
-                        self.other_params['e_max']
+                        self.other_params['e_max'],
+                        num_layers=self.other_params.get('num_layers'),
+                        nnodes=self.other_params.get('nnodes')
                     ))
                 else:
                     raise ValueError
