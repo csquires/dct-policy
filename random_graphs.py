@@ -2,15 +2,65 @@ import networkx as nx
 import itertools as itr
 import random
 from typing import Union, List
+import math
 from directed_chordal_utils import direct_chordal_graph, fill_vstructures
 
 
+def tree_of_cliques(
+        degree: int,
+        min_clique_size: int,
+        max_clique_size: int,
+        ngraphs: int = 1,
+        nnodes: int = None
+):
+    if ngraphs == 1:
+        counter = random.randint(min_clique_size, max_clique_size)
+        source_clique = list(range(counter))
+        previous_layer_cliques = [source_clique]
+        current_layer_cliques = []
+        arcs = set(itr.combinations(source_clique, 2))
+
+        while counter < nnodes:
+            for parent_clique in previous_layer_cliques:
+                for d in range(degree):
+                    if counter < nnodes:
+                        clique_size = random.randint(min_clique_size, max_clique_size)
+                        intersection_size = min(len(parent_clique)-1, random.randint(int(clique_size/2), clique_size-1))
+                        num_new_nodes = clique_size - intersection_size
+                        print(intersection_size)
+
+                        indices = set(random.sample(parent_clique, intersection_size))
+                        intersection = [
+                            parent_clique[ix] for ix in range(len(parent_clique))
+                            if ix in indices
+                        ]
+                        new_clique = intersection + list(range(counter, counter+num_new_nodes))
+                        current_layer_cliques.append(new_clique)
+                        arcs.update(set(itr.combinations(new_clique, 2)))
+                        counter += num_new_nodes
+            previous_layer_cliques = current_layer_cliques.copy()
+        g = nx.DiGraph()
+        g.add_edges_from(arcs)
+        if not nx.is_connected(g.to_undirected()):
+            raise RuntimeError
+        return g
+    else:
+        return [tree_of_cliques(degree, min_clique_size, max_clique_size, nnodes=nnodes) for _ in range(ngraphs)]
+
+
 def hairball(degree: int, num_layers: int = None, nnodes: int = None):
+    """
+    Return a `degree`-ary tree with `nnodes` nodes or `num_layers` layers.
+    """
     nnodes = sum((degree**i for i in range(num_layers))) if nnodes is None else nnodes
     return nx.full_rary_tree(degree, nnodes, create_using=nx.DiGraph)
 
 
 def hairball_plus(degree: int, e_min: int, e_max: int, ngraphs: int = 1, num_layers: int = None, nnodes: int = None):
+    """
+    Generate a "hairball", then add a random number of edges between `e_min` and `e_max`, then
+    triangulate the graph to make it chordal.
+    """
     if ngraphs == 1:
         g = hairball(degree, num_layers=num_layers, nnodes=nnodes)
         order = list(nx.topological_sort(g))
@@ -24,6 +74,9 @@ def hairball_plus(degree: int, e_min: int, e_max: int, ngraphs: int = 1, num_lay
 
 
 def random_directed_tree(nnodes: int):
+    """
+    Generate a random undirected tree, then pick a random root to make it directed.
+    """
     g = nx.random_tree(nnodes)
     root = random.randint(0, nnodes-1)
     d = nx.DiGraph()
@@ -102,3 +155,16 @@ def random_chordal_graph2(nnodes: int, k: int, ngraphs: int = 1, ensure_connecte
                 return direct_chordal_graph(g)
     else:
         return [random_chordal_graph2(nnodes, k) for _ in range(ngraphs)]
+
+
+if __name__ == '__main__':
+    import causaldag as cd
+
+    d_nx = tree_of_cliques(10, 5, 10, nnodes=500)
+    print(d_nx.number_of_nodes())
+    d = cd.DAG.from_nx(d_nx)
+    print(d.vstructures())
+    print(nx.is_chordal(d.to_nx().to_undirected()))
+
+
+

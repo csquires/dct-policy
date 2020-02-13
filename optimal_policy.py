@@ -119,7 +119,7 @@ def optimal_policy(essgraph, essgraph2opt, use_clique=True, rename=True):
     for v in essgraph.nodes - dominated_nodes(essgraph):
         total_time = 0
         ndags = 0
-        for c in utils.powerset_monotone(essgraph.undirected_neighbors[v], lambda s: is_clique(essgraph, s)):
+        for c in utils.powerset_predicate(essgraph.undirected_neighbors[v], lambda s: is_clique(essgraph, s)):
             # === NEW ESSGRAPH
             essgraph_iv = essgraph.copy()
             # print(essgraph_iv.arcs, essgraph_iv.edges)

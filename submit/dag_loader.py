@@ -1,6 +1,6 @@
 import os
 from submit.config import DATA_FOLDER
-from random_graphs import random_chordal_graph2, tree_plus, hairball_plus
+from random_graphs import random_chordal_graph2, tree_plus, hairball_plus, tree_of_cliques
 import numpy as np
 from causaldag import DAG
 from utils import write_list, read_list
@@ -15,6 +15,7 @@ class DagSampler(Enum):
     CHORDAL2 = 1
     TREE_PLUS = 2
     HAIRBALL_PLUS = 3
+    TREE_OF_CLIQUES = 4
 
 
 class DagLoader:
@@ -54,6 +55,13 @@ class DagLoader:
                         num_layers=self.other_params.get('num_layers'),
                         nnodes=self.other_params.get('nnodes')
                     ))
+                elif self.sampler == DagSampler.TREE_OF_CLIQUES:
+                    d = DAG.from_nx(tree_of_cliques(
+                        self.other_params['degree'],
+                        self.other_params['min_clique_size'],
+                        self.other_params['max_clique_size'],
+                        nnodes=self.other_params.get('nnodes')
+                    ))
                 else:
                     raise ValueError
                 if self.comparable_edges or get_directed_clique_graph(d) == LabelledMixedGraph.from_nx(d.directed_clique_tree()):
@@ -63,6 +71,12 @@ class DagLoader:
             if any(len(d.vstructures()) > 0 for d in dags):
                 print([len(d.vstructures()) for d in dags])
                 raise ValueError("DAG has v-structures")
+            for d in dags:
+                d_nx = d.to_nx().to_undirected()
+                if not nx.is_chordal(d_nx):
+                    raise RuntimeError
+                if not nx.is_connected(d_nx):
+                    raise RuntimeError
             os.makedirs(os.path.join(self.dag_folder, 'dags'), exist_ok=True)
             for dag, filename in zip(dags, self.dag_filenames):
                 np.save(filename, dag.to_amat()[0])

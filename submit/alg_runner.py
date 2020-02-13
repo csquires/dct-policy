@@ -34,19 +34,20 @@ class AlgRunner:
             dags = self.dag_loader.get_dags()
             os.makedirs(self.alg_folder, exist_ok=True)
 
-            def run_alg(dag):
+            def run_alg(tup):
+                ix, dag = tup
                 intervened_nodes = ALG_DICT[self.alg](dag)
                 if validate:
                     cpdag = dag.interventional_cpdag([{node} for node in intervened_nodes], cpdag=dag.cpdag())
                     if cpdag.num_edges > 0:
                         print(f"**************** BROKEN")
-                        print(f"alg={self.alg}, num intervened = {len(intervened_nodes)}, num edges={cpdag.num_edges}")
+                        print(f"ix={ix}, alg={self.alg}, num intervened = {len(intervened_nodes)}, num edges={cpdag.num_edges}")
                         raise RuntimeError
                 # write_list(intervened_nodes, os.path.join(self.alg_folder, f'nodes{ix}.txt'))
                 return len(intervened_nodes)
 
             if multithread:
-                num_nodes_list = p_map(run_alg, dags)
+                num_nodes_list = p_map(run_alg, list(enumerate(dags)))
             else:
                 num_nodes_list = list(tqdm((run_alg(dag) for dag in dags), total=len(dags)))
 

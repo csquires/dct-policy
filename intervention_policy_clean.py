@@ -11,6 +11,10 @@ from networkx.utils import UnionFind
 
 
 def is_oriented(c1: frozenset, c2: frozenset, cpdag: PDAG) -> bool:
+    """
+    Check if the orientation of the edge C1-C2 in the clique tree can be determined
+    from orientations in `cpdag`.
+    """
     shared = c1 & c2
     c1_ = c1 - shared
     c2_ = c2 - shared
@@ -22,6 +26,10 @@ def is_oriented(c1: frozenset, c2: frozenset, cpdag: PDAG) -> bool:
 
 
 def simulate_clique_intervention(dcg: LabelledMixedGraph, cpdag: PDAG, dag: DAG, intervened_clique: frozenset, simple=False):
+    """
+    Intervene on nodes in `dag` until the orientation between `intervened_clique` and all adjacent cliques
+    is determined.
+    """
     if simple:
         cpdag = cpdag.interventional_cpdag(dag, intervened_clique)
         return cpdag, intervened_clique
@@ -35,6 +43,9 @@ def simulate_clique_intervention(dcg: LabelledMixedGraph, cpdag: PDAG, dag: DAG,
 
 
 def intervene_inside_clique(cpdag: PDAG, dag: DAG, clique: frozenset) -> (PDAG, set):
+    """
+    Intervene on nodes inside `clique` until it is fully oriented.
+    """
     intervened_nodes = set()
     while any(cpdag.has_edge(i, j) for i, j in itr.combinations(clique, 2)):
         node = random.choice(list(clique - intervened_nodes))
@@ -44,6 +55,9 @@ def intervene_inside_clique(cpdag: PDAG, dag: DAG, clique: frozenset) -> (PDAG, 
 
 
 def dcg2dct(dcg: LabelledMixedGraph, verbose=False):
+    """
+    Given a directed clique graph, find a directed clique tree with no conflicting sources.
+    """
     clique_tree = nx.MultiDiGraph()
     clique_tree.add_nodes_from(dcg.nodes)
 
@@ -79,7 +93,35 @@ def dcg2dct(dcg: LabelledMixedGraph, verbose=False):
     return LabelledMixedGraph.from_nx(clique_tree)
 
 
+def contract_dct(dct):
+    """
+    Given a directed clique tree, return the contracted directed clique tree.
+    """
+    # find bidirected connected components
+    dct = dct.to_nx()
+
+    all_edges = set(dct.edges())
+    bidirected_graph = nx.Graph()
+    bidirected_graph.add_nodes_from(dct.nodes())
+    bidirected_graph.add_edges_from({(c1, c2) for c1, c2 in all_edges if (c2, c1) in all_edges})
+    components = [frozenset(component) for component in nx.connected_components(bidirected_graph)]
+    clique2component = {clique: component for component in components for clique in component}
+
+    # contract bidirected connected components
+    g = nx.DiGraph()
+    g.add_nodes_from(components)
+    g.add_edges_from({
+        (clique2component[c1], clique2component[c2]) for c1, c2 in all_edges
+        if clique2component[c1] != clique2component[c2]
+    })
+
+    return g
+
+
 def cg2ct(cg: LabelledMixedGraph):
+    """
+    Given an undirected clique graph, return a clique tree.
+    """
     ct = nx.Graph()
     subtrees = UnionFind()
     for c1, c2 in sorted(cg.undirected_keys, key=lambda e: len(cg.get_label(e)), reverse=True):
@@ -90,19 +132,9 @@ def cg2ct(cg: LabelledMixedGraph):
     return ct
 
 
-def incomparable(edge1, edge2, clique_graph):
+def incomparable(edge1, edge2, clique_graph: LabelledMixedGraph):
     """
     Check if `edge1` and `edge2` have incomparable labels in the given clique graph.
-
-    Parameters
-    ----------
-    edge1
-    edge2
-    clique_graph
-
-    Returns
-    -------
-
     """
     label1 = clique_graph.get_label(edge1)
     label2 = clique_graph.get_label(edge2)
@@ -462,10 +494,11 @@ def dct_policy(dag: DAG, verbose=False, check=False) -> set:
         current_clique_subtree = cg2ct(clique_graph.induced_graph(remaining_cliques))
 
     new_dct = dcg2dct(clique_graph)
-    cg = clique_graph.copy()
-    cg.remove_all_undirected()
-    cg.all_to_undirected()
-    cg_nx = cg.to_nx()
+    contracted_dct = contract_dct(new_dct)
+    # cg = clique_graph.copy()
+    # cg.remove_all_undirected()
+    # cg.all_to_undirected()
+    # cg_nx = cg.to_nx()
     # print('connected', nx.is_connected(cg_nx))
     if verbose: print(f"*** {len(regular_phase1)} regular intervened in Phase I")
     if check and len(cliques_phase1) > log_num_cliques:
@@ -478,18 +511,20 @@ def dct_policy(dag: DAG, verbose=False, check=False) -> set:
     phase2_nodes = set()
     resolved_cliques = set()
     nx_clique_tree = new_dct.to_nx()
-    clique2ancestors = {c: nx.ancestors(nx_clique_tree, c) for c in new_dct.nodes}
-    sorted_cliques = sorted(clique2ancestors.items(), key=lambda x: len(x[1]))
+    # clique2ancestors = {c: nx.ancestors(nx_clique_tree, c) for c in new_dct.nodes}
+    # sorted_cliques = sorted(clique2ancestors.items(), key=lambda x: len(x[1]))
+    sorted_components = nx.topological_sort(contracted_dct)
 
-    for next_clique, _ in sorted_cliques:
+    for next_component in sorted_components:
         # intervene on all nodes in this clique if it doesn't have a residual of size one
-        if len(next_clique - resolved_cliques) > 1:
-            cpdag, intervened_nodes_inside = intervene_inside_clique(cpdag, dag, next_clique - resolved_cliques)
-            if verbose: print(f"intervened on {next_clique}")
+        residual_nodes = frozenset.union(*next_component)
+        if len(residual_nodes) > 1:
+            cpdag, intervened_nodes_inside = intervene_inside_clique(cpdag, dag, residual_nodes)
+            if verbose: print(f"intervened on {next_component}")
             intervened_nodes.update(intervened_nodes_inside)
-            phase2_nodes.update(next_clique - resolved_cliques)
+            phase2_nodes.update(residual_nodes)
 
-        resolved_cliques.update(next_clique)
+        resolved_cliques.update(residual_nodes)
     if verbose: print(f"*** {len(phase2_nodes)} intervened in Phase II")
     # if verbose: print(f"extra nodes not intervened in Phase II: {all_extra_nodes - phase2_nodes}")
     if check and 3*optimal_ivs < len(phase2_nodes):

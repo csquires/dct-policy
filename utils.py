@@ -4,10 +4,13 @@ import random
 
 
 def powerset(s):
+    """
+    Return all subsets of `s`, order by increasing size.
+    """
     return map(frozenset, itr.chain.from_iterable(itr.combinations(s, r) for r in range(len(s)+1)))
 
 
-def powerset_monotone(s, predicate):
+def powerset_predicate(s, predicate):
     # any_satisfy = True
     # for r in range(len(s)+1):
     #     if any_satisfy:
@@ -19,20 +22,29 @@ def powerset_monotone(s, predicate):
 
 
 def random_max(d: dict):
+    """
+    Return a random key amongst the items in a dictionary with the maximum value.
+    """
     max_val = max(d.items(), key=op.itemgetter(1))[1]
     eligible_keys = [key for key, val in d.items() if val == max_val]
     return random.choice(eligible_keys)
 
 
-def write_list(l, filename):
+def write_list(lst: list, filename):
+    """
+    Write the list `l` to the file `filename`.
+    """
     with open(filename, 'w') as f:
-        for item in l:
+        for item in lst:
             f.write('%s\n' % item)
 
 
 def read_list(filename) -> list:
-    l = []
+    """
+    Read a list from `filename`.
+    """
+    lst = []
     with open(filename) as f:
         for line in f.readlines():
-            l.append(line.rstrip())
-    return l
+            lst.append(line.rstrip())
+    return lst

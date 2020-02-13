@@ -8,17 +8,15 @@ from submit.config import FIGURE_FOLDER
 import os
 import networkx as nx
 from p_tqdm import p_map
-import random
 sns.set()
 
-random.seed(98625472)
 ngraphs = 100
 nnodes_list = [100, 150, 200, 250, 300]
 RANDOM = True
 DCT = True
 OPT_SINGLE = False
-sampler = DagSampler.HAIRBALL_PLUS
-other_params = dict(e_min=2, e_max=5, degree=4)
+sampler = DagSampler.TREE_OF_CLIQUES
+other_params = dict(min_clique_size=5, max_clique_size=10, degree=10)
 
 random_results = np.zeros([len(nnodes_list), ngraphs])
 dct_results = np.zeros([len(nnodes_list), ngraphs])
@@ -28,6 +26,7 @@ clique_sizes = np.zeros([len(nnodes_list), ngraphs])
 num_cliques = np.zeros([len(nnodes_list), ngraphs])
 dags_array = np.zeros([len(nnodes_list), ngraphs], dtype=object)
 num_arcs = np.zeros([len(nnodes_list), ngraphs])
+
 
 for i, nnodes in enumerate(nnodes_list):
     dl = DagLoader(nnodes, ngraphs, sampler, {**other_params, 'nnodes': nnodes}, comparable_edges=True)
