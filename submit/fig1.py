@@ -17,12 +17,15 @@ nnodes_list = [100, 150, 200, 250, 300]
 RANDOM = True
 DCT = True
 OPT_SINGLE = False
+COLOR = True
 sampler = DagSampler.HAIRBALL_PLUS
 other_params = dict(e_min=2, e_max=5, degree=4)
 
 random_results = np.zeros([len(nnodes_list), ngraphs])
 dct_results = np.zeros([len(nnodes_list), ngraphs])
 opt_single_results = np.zeros([len(nnodes_list), ngraphs])
+coloring_results = np.zeros([len(nnodes_list), ngraphs])
+
 verification_optimal = np.zeros([len(nnodes_list), ngraphs])
 clique_sizes = np.zeros([len(nnodes_list), ngraphs])
 num_cliques = np.zeros([len(nnodes_list), ngraphs])
@@ -48,6 +51,9 @@ for i, nnodes in enumerate(nnodes_list):
     if OPT_SINGLE:
         ar = AlgRunner('opt_single', dl)
         opt_single_results[i] = ar.get_alg_results()
+    if COLOR:
+        ar = AlgRunner('coloring', dl)
+        coloring_results[i] = ar.get_alg_results()
 
 print(num_arcs.mean(axis=1))
 log_num_cliques = np.ceil(np.log2(num_cliques))
@@ -59,6 +65,8 @@ if DCT:
     plt.plot(nnodes_list, (dct_results/verification_optimal).mean(axis=1), label='DCT')
 if OPT_SINGLE:
     plt.plot(nnodes_list, (opt_single_results/verification_optimal).mean(axis=1), label='OptSingle')
+if COLOR:
+    plt.plot(nnodes_list, (coloring_results/verification_optimal).mean(axis=1), label='Coloring')
 plt.xlabel('Number of Nodes')
 plt.ylabel('Average Competitive Ratio')
 plt.legend()
@@ -74,6 +82,8 @@ if DCT:
     plt.plot(nnodes_list, (dct_results/verification_optimal).max(axis=1), label='DCT')
 if OPT_SINGLE:
     plt.plot(nnodes_list, (opt_single_results/verification_optimal).max(axis=1), label='OptSingle')
+if COLOR:
+    plt.plot(nnodes_list, (coloring_results/verification_optimal).max(axis=1), label='Coloring')
 plt.xlabel('Number of Nodes')
 plt.ylabel('Maximum Competitive Ratio')
 plt.legend()

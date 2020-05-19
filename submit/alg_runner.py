@@ -1,7 +1,7 @@
 import os
 from submit.dag_loader import DagLoader, DagSampler
 from intervention_policy_clean import dct_policy
-from submit.baselines import random_policy, max_degree_policy, opt_single_policy
+from submit.baselines import random_policy, max_degree_policy, opt_single_policy, coloring_policy
 from utils import write_list
 import numpy as np
 from tqdm import tqdm
@@ -14,7 +14,8 @@ ALG_DICT = {
     'dct': dct_policy,
     'random': random_policy,
     'max_degree': max_degree_policy,
-    'opt_single': opt_single_policy
+    'opt_single': opt_single_policy,
+    'coloring': coloring_policy
 }
 
 
@@ -46,6 +47,7 @@ class AlgRunner:
                 # write_list(intervened_nodes, os.path.join(self.alg_folder, f'nodes{ix}.txt'))
                 return len(intervened_nodes)
 
+            print(f'Running {self.alg}')
             if multithread:
                 num_nodes_list = p_map(run_alg, list(enumerate(dags)))
             else:

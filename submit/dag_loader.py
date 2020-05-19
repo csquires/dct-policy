@@ -36,6 +36,7 @@ class DagLoader:
         return [os.path.join(self.dag_folder, 'dags', f'dag{i}.npy') for i in range(self.num_dags)]
 
     def get_dags(self, overwrite=False):
+        print(f'Loading from {self.dag_folder}')
         if overwrite or not os.path.exists(self.dag_folder):
             dags = []
             counter = 0
