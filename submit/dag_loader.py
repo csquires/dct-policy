@@ -1,6 +1,6 @@
 import os
 from submit.config import DATA_FOLDER
-from random_graphs import random_chordal_graph2, tree_plus, hairball_plus, tree_of_cliques
+from random_graphs import random_chordal_graph2, tree_plus, hairball_plus, tree_of_cliques, random_chordal_graph
 import numpy as np
 from causaldag import DAG
 from utils import write_list, read_list
@@ -16,6 +16,7 @@ class DagSampler(Enum):
     TREE_PLUS = 2
     HAIRBALL_PLUS = 3
     TREE_OF_CLIQUES = 4
+    ERDOS = 5
 
 
 class DagLoader:
@@ -62,6 +63,11 @@ class DagLoader:
                         self.other_params['min_clique_size'],
                         self.other_params['max_clique_size'],
                         nnodes=self.other_params.get('nnodes')
+                    ))
+                elif self.sampler == DagSampler.ERDOS:
+                    d = DAG.from_nx(random_chordal_graph(
+                        self.other_params.get('nnodes'),
+                        p=self.other_params['density']
                     ))
                 else:
                     raise ValueError

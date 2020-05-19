@@ -102,7 +102,7 @@ def random_chordal_graph(nnodes, p=.1, ngraphs=1):
         d = nx.DiGraph()
         for node in perm:
             d.add_edges_from([(node, nbr) for nbr in g.neighbors(node)])
-        return g
+        return d
     else:
         return [random_chordal_graph(nnodes, p=p) for _ in range(ngraphs)]
 

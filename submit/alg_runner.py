@@ -1,7 +1,7 @@
 import os
 from submit.dag_loader import DagLoader, DagSampler
 from intervention_policy_clean import dct_policy
-from submit.baselines import random_policy, max_degree_policy, opt_single_policy, coloring_policy
+from submit.baselines import random_policy, max_degree_policy, opt_single_policy, coloring_policy, greedy_minmax_policy, greedy_entropy_policy
 from utils import write_list
 import numpy as np
 from tqdm import tqdm
@@ -15,7 +15,9 @@ ALG_DICT = {
     'random': random_policy,
     'max_degree': max_degree_policy,
     'opt_single': opt_single_policy,
-    'coloring': coloring_policy
+    'coloring': coloring_policy,
+    'greedy_minmax': greedy_minmax_policy,
+    'greedy_entropy': greedy_entropy_policy
 }
 
 
