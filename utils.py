@@ -31,23 +31,3 @@ def random_max(d: dict, minimize=False):
         optimal_val = max(d.items(), key=op.itemgetter(1))[1]
     eligible_keys = [key for key, val in d.items() if val == optimal_val]
     return random.choice(eligible_keys)
-
-
-def write_list(lst: list, filename):
-    """
-    Write the list `l` to the file `filename`.
-    """
-    with open(filename, 'w') as f:
-        for item in lst:
-            f.write('%s\n' % item)
-
-
-def read_list(filename) -> list:
-    """
-    Read a list from `filename`.
-    """
-    lst = []
-    with open(filename) as f:
-        for line in f.readlines():
-            lst.append(line.rstrip())
-    return lst

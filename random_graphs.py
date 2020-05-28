@@ -2,9 +2,8 @@ import networkx as nx
 import itertools as itr
 import random
 from typing import Union, List
-import math
 import numpy as np
-from directed_chordal_utils import direct_chordal_graph, fill_vstructures
+from graph_utils import fill_vstructures, direct_chordal_graph
 from scipy.special import binom
 
 
