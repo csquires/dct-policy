@@ -3,7 +3,9 @@ import itertools as itr
 import random
 from typing import Union, List
 import math
+import numpy as np
 from directed_chordal_utils import direct_chordal_graph, fill_vstructures
+from scipy.special import binom
 
 
 def tree_of_cliques(
@@ -48,7 +50,7 @@ def tree_of_cliques(
         return [tree_of_cliques(degree, min_clique_size, max_clique_size, nnodes=nnodes) for _ in range(ngraphs)]
 
 
-def hairball(degree: int, num_layers: int = None, nnodes: int = None):
+def hairball(degree: int, num_layers: int = None, nnodes: int = None) -> nx.DiGraph:
     """
     Return a `degree`-ary tree with `nnodes` nodes or `num_layers` layers.
     """
@@ -56,7 +58,16 @@ def hairball(degree: int, num_layers: int = None, nnodes: int = None):
     return nx.full_rary_tree(degree, nnodes, create_using=nx.DiGraph)
 
 
-def hairball_plus(degree: int, e_min: int, e_max: int, ngraphs: int = 1, num_layers: int = None, nnodes: int = None):
+def hairball_plus(
+        degree: int,
+        e_min: int = None,
+        e_max: int = None,
+        ngraphs: int = 1,
+        num_layers: int = None,
+        nnodes: int = None,
+        edge_prob: float = None,
+        nontree_factor: float = None
+):
     """
     Generate a "hairball", then add a random number of edges between `e_min` and `e_max`, then
     triangulate the graph to make it chordal.
@@ -64,8 +75,16 @@ def hairball_plus(degree: int, e_min: int, e_max: int, ngraphs: int = 1, num_lay
     if ngraphs == 1:
         g = hairball(degree, num_layers=num_layers, nnodes=nnodes)
         order = list(nx.topological_sort(g))
-        num_extra_edges = random.randint(e_min, e_max)
-        extra_edges = random.sample(list(itr.combinations(order, 2)), num_extra_edges)
+        if e_min is not None:
+            num_extra_edges = random.randint(e_min, e_max)
+        elif edge_prob is not None:
+            nnodes = g.number_of_nodes()
+            num_missing_edges = binom(nnodes, 2) - (nnodes - 1)
+            num_extra_edges = np.random.binomial(num_missing_edges, edge_prob)
+        else:
+            num_extra_edges = int(nontree_factor*(nnodes - 1))
+        missing_edges = [(i, j) for i, j in itr.combinations(order, 2) if not g.has_edge(i, j)]
+        extra_edges = random.sample(missing_edges, num_extra_edges)
         g.add_edges_from(extra_edges)
         fill_vstructures(g, order)
         return g
@@ -91,7 +110,7 @@ def random_directed_tree(nnodes: int):
     return d
 
 
-def random_chordal_graph(nnodes, p=.1, ngraphs=1):
+def random_chordal_graph(nnodes, p=.1, ngraphs=1) -> Union[nx.DiGraph, List[nx.DiGraph]]:
     if ngraphs == 1:
         g = nx.erdos_renyi_graph(nnodes, p)
         perm = random.sample(set(range(nnodes)), nnodes)
@@ -105,6 +124,25 @@ def random_chordal_graph(nnodes, p=.1, ngraphs=1):
         return d
     else:
         return [random_chordal_graph(nnodes, p=p) for _ in range(ngraphs)]
+
+
+def shanmugam_random_chordal(nnodes, density):
+    while True:
+        d = nx.DiGraph()
+        d.add_nodes_from(set(range(nnodes)))
+        order = list(range(1, nnodes))
+        for i in order:
+            num_parents_i = max(1, np.random.binomial(i, density))
+            parents_i = random.sample(list(range(i)), num_parents_i)
+            d.add_edges_from({(p, i) for p in parents_i})
+        for i in reversed(order):
+            for j, k in itr.combinations(d.predecessors(i), 2):
+                d.add_edge(min(j, k), max(j, k))
+
+        perm = np.random.permutation(list(range(nnodes)))
+        d = nx.relabel.relabel_nodes(d, dict(enumerate(perm)))
+
+        return d
 
 
 def tree_plus(nnodes: int, e_min: int, e_max: int, ngraphs: int = 1):
@@ -160,11 +198,12 @@ def random_chordal_graph2(nnodes: int, k: int, ngraphs: int = 1, ensure_connecte
 if __name__ == '__main__':
     import causaldag as cd
 
-    d_nx = tree_of_cliques(10, 5, 10, nnodes=500)
+    d_nx = shanmugam_random_chordal(10, .1)
     print(d_nx.number_of_nodes())
+    print(nx.chordal_graph_cliques(d_nx.to_undirected()))
+    print(nx.is_connected(d_nx.to_undirected()))
     d = cd.DAG.from_nx(d_nx)
     print(d.vstructures())
-    print(nx.is_chordal(d.to_nx().to_undirected()))
 
 
 

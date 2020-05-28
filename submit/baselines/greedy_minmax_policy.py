@@ -9,7 +9,7 @@ def pick_greedy_minmax_size(cpdag: PDAG, verbose=False):
         for parents in cpdag.possible_parents(node):
             cpdag_ = cpdag.copy()
             cpdag_.assign_parents(node, parents)
-            mec_size = len(cpdag_.all_dags())
+            mec_size = cpdag_.mec_size()
             node2max_size[node] = max(mec_size, node2max_size[node])
     if verbose: print(node2max_size)
     return random_max(node2max_size, minimize=True)

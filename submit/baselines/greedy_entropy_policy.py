@@ -11,7 +11,7 @@ def pick_greedy_entropy(cpdag: PDAG, verbose=False):
         for parents in cpdag.possible_parents(node):
             cpdag_ = cpdag.copy()
             cpdag_.assign_parents(node, parents)
-            partition_sizes.append(len(cpdag_.all_dags()))
+            partition_sizes.append(cpdag_.mec_size())
         node2entropy[node] = entropy(partition_sizes)
     if verbose: print(node2entropy)
     return random_max(node2entropy)

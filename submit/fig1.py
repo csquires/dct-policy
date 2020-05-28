@@ -5,7 +5,7 @@ from submit.plot_results_vary_nodes import plot_results_vary_nodes
 nnodes_list = [100, 150, 200, 250, 300]
 ngraphs = 100
 sampler = DagSampler.HAIRBALL_PLUS
-other_params = dict(e_min=2, e_max=5, degree=4)
+other_params = dict(e_min=2, e_max=5, degree=3)
 algorithms = {
     'random',
     'dct',

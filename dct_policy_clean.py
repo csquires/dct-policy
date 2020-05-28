@@ -36,7 +36,9 @@ def simulate_clique_intervention(dcg: LabelledMixedGraph, cpdag: PDAG, dag: DAG,
     adj_cliques = dcg.adjacent_to(intervened_clique)
     intervened_nodes = set()
     while not all(is_oriented(intervened_clique, c, cpdag) for c in adj_cliques):
-        node = random.choice(list(intervened_clique - intervened_nodes))
+        remaining_nodes = list(intervened_clique - intervened_nodes - cpdag.dominated_nodes)
+        remaining_nodes = remaining_nodes if len(remaining_nodes) != 0 else list(intervened_clique - intervened_nodes)
+        node = random.choice(remaining_nodes)  # TODO ALSO REMOVE DOMINATED NODES
         intervened_nodes.add(node)
         cpdag = cpdag.interventional_cpdag(dag, {node})
     return cpdag, intervened_nodes
@@ -48,7 +50,9 @@ def intervene_inside_clique(cpdag: PDAG, dag: DAG, clique: frozenset) -> (PDAG, 
     """
     intervened_nodes = set()
     while any(cpdag.has_edge(i, j) for i, j in itr.combinations(clique, 2)):
-        node = random.choice(list(clique - intervened_nodes))
+        remaining_nodes = list(clique - intervened_nodes - cpdag.dominated_nodes)
+        remaining_nodes = remaining_nodes if len(remaining_nodes) != 0 else list(clique - intervened_nodes)
+        node = random.choice(remaining_nodes)  # TODO ALSO REMOVE DOMINATED NODES
         intervened_nodes.add(node)
         cpdag = cpdag.interventional_cpdag(dag, {node})
     return cpdag, intervened_nodes

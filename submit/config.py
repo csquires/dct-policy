@@ -14,3 +14,11 @@ policies = [
     'greedy_entropy'
 ]
 POLICY2COLOR = dict(zip(policies, sns.color_palette('bright')))
+POLICY2LABEL = {
+    'dct': 'DCT',
+    'random': 'Random',
+    'coloring': 'Coloring',
+    'opt_single': 'OptSingle',
+    'greedy_minmax': 'GreedyMEC',
+    'greedy_entropy': 'GreedyEntropy',
+}

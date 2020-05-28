@@ -11,6 +11,9 @@ import random
 import ipdb
 sns.set()
 
+OVERWRITE_ALL = True
+OVERWRITE_DAGS = False
+
 
 def plot_results_vary_density(
         nnodes: int,
@@ -37,7 +40,7 @@ def plot_results_vary_density(
 
     for i, density in enumerate(density_list):
         dl = DagLoader(nnodes, ngraphs, sampler, {**other_params, 'density': density}, comparable_edges=True)
-        dags = dl.get_dags()
+        dags = dl.get_dags(overwrite=OVERWRITE_DAGS)
         cliques_list = p_map(lambda d: nx.chordal_graph_cliques(d.to_nx().to_undirected()), dags)
         clique_sizes[i] = [max(len(c) for c in cliques) for cliques in cliques_list]
         num_cliques[i] = [len(cliques) for cliques in cliques_list]
@@ -47,22 +50,22 @@ def plot_results_vary_density(
         verification_optimal[i] = dl.get_verification_optimal_ivs()
         if 'random' in algorithms:
             ar = AlgRunner('random', dl)
-            random_results[i] = ar.get_alg_results()
+            random_results[i] = ar.get_alg_results(overwrite=OVERWRITE_ALL)
         if 'dct' in algorithms:
             ar = AlgRunner('dct', dl)
-            dct_results[i] = ar.get_alg_results()
+            dct_results[i] = ar.get_alg_results(overwrite=OVERWRITE_ALL)
         if 'opt_single' in algorithms:
             ar = AlgRunner('opt_single', dl)
-            opt_single_results[i] = ar.get_alg_results()
+            opt_single_results[i] = ar.get_alg_results(overwrite=OVERWRITE_ALL)
         if 'coloring' in algorithms:
             ar = AlgRunner('coloring', dl)
-            coloring_results[i] = ar.get_alg_results()
+            coloring_results[i] = ar.get_alg_results(overwrite=OVERWRITE_ALL)
         if 'greedy_minmax' in algorithms:
             ar = AlgRunner('greedy_minmax', dl)
-            greedy_minmax_results[i] = ar.get_alg_results()
+            greedy_minmax_results[i] = ar.get_alg_results(overwrite=OVERWRITE_ALL)
         if 'greedy_entropy' in algorithms:
             ar = AlgRunner('greedy_entropy', dl)
-            greedy_entropy_results[i] = ar.get_alg_results(overwrite=True)
+            greedy_entropy_results[i] = ar.get_alg_results(overwrite=OVERWRITE_ALL)
 
     print(num_arcs.mean(axis=1))
     log_num_cliques = np.ceil(np.log2(num_cliques))
@@ -81,12 +84,12 @@ def plot_results_vary_density(
     if 'greedy_entropy' in algorithms:
         plt.plot(density_list, (greedy_minmax_results/verification_optimal).mean(axis=1), color=POLICY2COLOR['greedy_entropy'], label='Greedy Entropy')
 
-    plt.xlabel('Number of Nodes')
+    plt.xlabel('Density')
     plt.ylabel('Average Competitive Ratio')
     plt.legend()
     other_params_str = ','.join((f"{k}={v}" for k, v in other_params.items()))
-    plt.savefig(os.path.join(FIGURE_FOLDER, f'avgregret_sampler={sampler},{other_params_str}.png'))
-    plt.savefig(os.path.join(FIGURE_FOLDER, f'avgregret'))
+    plt.savefig(os.path.join(FIGURE_FOLDER, f'density_avgregret_sampler={sampler},nnodes={nnodes},{other_params_str}.png'))
+    plt.savefig(os.path.join(FIGURE_FOLDER, f'density_avgregret'))
 
     plt.clf()
     if 'random' in algorithms:
@@ -101,11 +104,11 @@ def plot_results_vary_density(
         plt.plot(density_list, (greedy_minmax_results/verification_optimal).max(axis=1), color=POLICY2COLOR['greedy_minmax'], label='Greedy Minmax')
     if 'greedy_entropy' in algorithms:
         plt.plot(density_list, (greedy_entropy_results/verification_optimal).max(axis=1), color=POLICY2COLOR['greedy_entropy'], label='Greedy Entropy')
-    plt.xlabel('Number of Nodes')
+    plt.xlabel('Density')
     plt.ylabel('Maximum Competitive Ratio')
     plt.legend()
     other_params_str = ','.join((f"{k}={v}" for k, v in other_params.items()))
-    plt.savefig(os.path.join(FIGURE_FOLDER, f'maxregret_sampler={sampler},{other_params_str}.png'))
-    plt.savefig(os.path.join(FIGURE_FOLDER, f'maxregret'))
+    plt.savefig(os.path.join(FIGURE_FOLDER, f'density_maxregret_sampler={sampler},nnodes={nnodes},{other_params_str}.png'))
+    plt.savefig(os.path.join(FIGURE_FOLDER, f'density_maxregret'))
 
     ipdb.set_trace()

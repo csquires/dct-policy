@@ -1,12 +1,13 @@
 import os
 from submit.dag_loader import DagLoader, DagSampler
-from intervention_policy_clean import dct_policy
+from dct_policy_clean import dct_policy
 from submit.baselines import random_policy, max_degree_policy, opt_single_policy, coloring_policy, greedy_minmax_policy, greedy_entropy_policy
 from utils import write_list
 import numpy as np
 from tqdm import tqdm
 import random
 from p_tqdm import p_map
+from time import time
 from multiprocessing import Pool, cpu_count
 
 
@@ -33,13 +34,19 @@ class AlgRunner:
     def get_alg_results(self, overwrite=False, validate=True, multithread=True):
         random.seed(9859787)
         result_filename = os.path.join(self.alg_folder, f'num_nodes_list.npy')
+        time_result_filename = os.path.join(self.alg_folder, f'times_list.npy')
+        print(self.alg_folder)
         if overwrite or not os.path.exists(self.alg_folder):
-            dags = self.dag_loader.get_dags()
+            dags = self.dag_loader.get_dags(overwrite=overwrite)
             os.makedirs(self.alg_folder, exist_ok=True)
 
             def run_alg(tup):
                 ix, dag = tup
+
+                start = time()
                 intervened_nodes = ALG_DICT[self.alg](dag)
+                time_taken = time() - start
+
                 if validate:
                     cpdag = dag.interventional_cpdag([{node} for node in intervened_nodes], cpdag=dag.cpdag())
                     if cpdag.num_edges > 0:
@@ -47,18 +54,20 @@ class AlgRunner:
                         print(f"ix={ix}, alg={self.alg}, num intervened = {len(intervened_nodes)}, num edges={cpdag.num_edges}")
                         raise RuntimeError
                 # write_list(intervened_nodes, os.path.join(self.alg_folder, f'nodes{ix}.txt'))
-                return len(intervened_nodes)
+                return len(intervened_nodes), time_taken
 
-            print(f'Running {self.alg}')
             if multithread:
-                num_nodes_list = p_map(run_alg, list(enumerate(dags)))
+                print(f'[AlgRunner.get_alg_results] Running {self.alg} on {cpu_count()-1} cores')
+                num_nodes_list, times_list = zip(*p_map(run_alg, list(enumerate(dags))))
             else:
-                num_nodes_list = list(tqdm((run_alg(dag) for dag in dags), total=len(dags)))
+                print(f'[AlgRunner.get_alg_results] Running {self.alg} on 1 core')
+                num_nodes_list, times_list = zip(*list(tqdm((run_alg(dag) for dag in dags), total=len(dags))))
 
             np.save(result_filename, np.array(num_nodes_list))
-            return np.array(num_nodes_list)
+            np.save(time_result_filename, np.array(times_list))
+            return np.array(num_nodes_list), np.array(times_list)
         else:
-            return np.load(result_filename)
+            return np.load(result_filename), np.load(time_result_filename)
 
     def specific_dag(self, ix, verbose=False):
         dag = self.dag_loader.get_dags()[ix]

@@ -11,6 +11,8 @@ import random
 import ipdb
 sns.set()
 
+OVERWRITE_ALL = True
+
 
 def plot_results_vary_nodes(
         nnodes_list: list,
@@ -46,22 +48,22 @@ def plot_results_vary_nodes(
         verification_optimal[i] = dl.get_verification_optimal_ivs()
         if 'random' in algorithms:
             ar = AlgRunner('random', dl)
-            random_results[i] = ar.get_alg_results()
+            random_results[i] = ar.get_alg_results(overwrite=OVERWRITE_ALL)
         if 'dct' in algorithms:
             ar = AlgRunner('dct', dl)
-            dct_results[i] = ar.get_alg_results()
+            dct_results[i] = ar.get_alg_results(overwrite=OVERWRITE_ALL)
         if 'opt_single' in algorithms:
             ar = AlgRunner('opt_single', dl)
-            opt_single_results[i] = ar.get_alg_results()
+            opt_single_results[i] = ar.get_alg_results(overwrite=OVERWRITE_ALL)
         if 'coloring' in algorithms:
             ar = AlgRunner('coloring', dl)
-            coloring_results[i] = ar.get_alg_results()
+            coloring_results[i] = ar.get_alg_results(overwrite=OVERWRITE_ALL)
         if 'greedy_minmax' in algorithms:
             ar = AlgRunner('greedy_minmax', dl)
-            greedy_minmax_results[i] = ar.get_alg_results()
+            greedy_minmax_results[i] = ar.get_alg_results(overwrite=OVERWRITE_ALL)
         if 'greedy_entropy' in algorithms:
             ar = AlgRunner('greedy_entropy', dl)
-            greedy_entropy_results[i] = ar.get_alg_results(overwrite=True)
+            greedy_entropy_results[i] = ar.get_alg_results(overwrite=OVERWRITE_ALL)
 
     print(num_arcs.mean(axis=1))
     log_num_cliques = np.ceil(np.log2(num_cliques))
@@ -84,7 +86,7 @@ def plot_results_vary_nodes(
     plt.ylabel('Average Competitive Ratio')
     plt.legend()
     other_params_str = ','.join((f"{k}={v}" for k, v in other_params.items()))
-    plt.savefig(os.path.join(FIGURE_FOLDER, f'avgregret_sampler={sampler},{other_params_str}.png'))
+    plt.savefig(os.path.join(FIGURE_FOLDER, f'avgregret_sampler={sampler},nnodes_list={nnodes_list},{other_params_str}.png'))
     plt.savefig(os.path.join(FIGURE_FOLDER, f'avgregret'))
 
     plt.clf()
@@ -104,7 +106,7 @@ def plot_results_vary_nodes(
     plt.ylabel('Maximum Competitive Ratio')
     plt.legend()
     other_params_str = ','.join((f"{k}={v}" for k, v in other_params.items()))
-    plt.savefig(os.path.join(FIGURE_FOLDER, f'maxregret_sampler={sampler},{other_params_str}.png'))
+    plt.savefig(os.path.join(FIGURE_FOLDER, f'maxregret_sampler={sampler},nnodes_list={nnodes_list},{other_params_str}.png'))
     plt.savefig(os.path.join(FIGURE_FOLDER, f'maxregret'))
 
     ipdb.set_trace()
