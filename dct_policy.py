@@ -252,7 +252,7 @@ def apply_clique_intervention2(
 
                     if c3 is not None and (c3 & c1) < label:  # if c1 and c2 have a common parent/spouse with a smaller intersection, then spend interventions
                         if verbose: print(f"Intervening on extra nodes {c1 & c2} to orient {c1}-{c2} with common_parent = {c3}")
-                        extra_nodes.update(c1 & c2)
+                        extra_nodes.update(c1 & c2)  # TODO should be able to only intervene until c1-c2 is oriented
                         add_edge_direction(new_clique_graph, new_clique_tree, c1, c2, dcg, verbose=verbose)
                     elif c3 is not None and (c3 & c1) == label:
                         new_clique_graph.to_bidirected(c1, c2)
@@ -421,15 +421,6 @@ def apply_clique_intervention(
 def dct_policy(dag: DAG, verbose=False, check=False) -> set:
     """
     Use the DCT policy to fully orient the given DAG, as if it was an undirected graph.
-
-    Parameters
-    ----------
-    dag
-    verbose
-
-    Returns
-    -------
-
     """
     random.seed(897986274)
     if check:
@@ -541,21 +532,6 @@ def dct_policy(dag: DAG, verbose=False, check=False) -> set:
     return intervened_nodes
 
 
-if __name__ == '__main__':
-    from directed_chordal_utils import tree_plus
-    from line_profiler import LineProfiler
-    import causaldag as cd
-
-    d = cd.DAG.from_nx(tree_plus(100, 2, 5))
-
-    def run_dct_policy():
-        iv_nodes = dct_policy(d)
-        print(iv_nodes)
-
-    lp = LineProfiler()
-    lp.add_function(dct_policy)
-    lp.runcall(run_dct_policy)
-    lp.print_stats()
 
 
 

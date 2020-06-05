@@ -20,6 +20,8 @@ def plot_results_vary_nodes(
         overwrite=False
 ):
     random.seed(98625472)
+    os.makedirs('figures', exist_ok=True)
+
     rg = ResultGetter(
         algorithms,
         nnodes_list,
